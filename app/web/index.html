@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Julio Clip · Tu directo, sus mejores momentos</title><link rel="icon" href="logo-julio.jpg" type="image/jpeg"><link rel="stylesheet" href="style.css"><script src="app.js" defer></script></head>
+<body><aside><a class="brand" href="#estudio"><img src="logo-julio.jpg" width="166" height="148" alt="Julio Clip"></a><p class="eyebrow">ESTUDIO DE CONTENIDO</p><nav><a id="nav-estudio" class="active" aria-current="page" href="#estudio"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="m8.2 8.2 12.3 12.3M14 10l6.5-6.5M8.2 15.8 11 13"/></svg>Directos</a>
+<a id="nav-monitoreo" href="#monitoreo"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 12h4l3-7 4 14 3-7h4"/></svg>Monitoreo</a>
+<a id="nav-publicados" href="#publicados"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m10 9 5 3-5 3Z"/></svg>Videos publicados</a>
+<a id="nav-resultados" href="#resultados"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 4v16M17 4v16M3 9h4m10 0h4M3 15h4m10 0h4"/></svg>Mis clips</a><a id="nav-diagnostico" href="#diagnostico"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8m-4-4v4M6 11h3l2-3 2 5 2-2h3"/></svg>Estado del equipo</a></nav><div class="aside-note"><b>Tu contenido, en tu equipo.</b><p>El procesamiento ocurre en tu equipo, desde la interfaz local o la web vinculada.</p><small id="edition-label">JULIO CLIP · ESTUDIO PERSONAL</small></div></aside>
+<main id="estudio"><header><span>Tu espacio de creación</span><div class="connection-actions"><span id="license-badge" class="badge" hidden></span><span id="connection" class="badge">Comprobando modo…</span><button id="link">Vincular con mi equipo</button><button id="unlink" hidden>Desconectar</button></div></header>
+<p id="license-renewal" class="notice" hidden><span id="license-renewal-text"></span> <a id="license-reminder-link" target="_blank" rel="noopener noreferrer">Renovar por WhatsApp</a></p>
+<section id="license-panel" class="panel" aria-labelledby="license-heading" hidden>
+  <h2 id="license-heading">Licencia de Julio Clip</h2>
+  <p id="license-message"></p>
+  <a id="license-whatsapp" class="download" target="_blank" rel="noopener noreferrer" hidden>Renovar por WhatsApp</a>
+  <p id="license-price" class="hint"></p>
+  <form id="license-form">
+    <label for="license-code">Código de activación<input id="license-code" type="text" maxlength="64" required autocomplete="off" spellcheck="false"></label>
+    <button id="license-activate" class="primary" type="submit">Activar licencia</button>
+    <p id="license-feedback" class="hint" role="status"></p>
+  </form>
+</section>
+<section id="live-intro" class="intro"><p class="eyebrow">DE UN DIRECTO A MUCHAS HISTORIAS</p><h1>Encuentra el momento.<br><em>Dale su propio clip.</em></h1><p>Pega el enlace de tu directo y deja que Julio Clip busque y exporte fragmentos mientras sigue la emisión.</p></section>
+<section id="publicados" class="intro published-intro" hidden>
+  <p class="eyebrow">YOUTUBE · TIKTOK</p>
+  <h1>Recorta un video <em>ya publicado.</em></h1>
+  <p>Importa un video, analiza su imagen y sonido y exporta el momento que elijas.</p>
+</section>
+<div id="notice" class="notice" role="status">Comprobando el entorno…</div>
+<p id="public-limits" class="notice" hidden>Edición pública · Hasta dos clips de 30 segundos por cada 24 horas. La marca de agua se puede usar en uno de ellos.</p>
+<section id="monitoreo" class="monitor" hidden>
+  <div class="monitor-header">
+    <div><p class="eyebrow">SEGUIMIENTO DEL DIRECTO</p><h1>Monitoreo en tiempo real</h1>
+    <p id="monitor-state" class="hint" role="status">Inicia un directo para ver el progreso de la sesión.</p></div>
+    <div class="connection-actions"><a class="download" href="#resultados">Ver Mis clips</a><button id="monitor-finish" class="primary" disabled>Terminar y generar clips</button><button id="monitor-stop" disabled>Cancelar captura</button></div>
+  </div>
+  <section id="monitor-preview" class="panel" aria-labelledby="monitor-preview-heading" hidden>
+    <h2 id="monitor-preview-heading">Vista del directo</h2>
+    <div id="monitor-player"></div>
+    <p class="hint">El reproductor de YouTube sigue la señal pública. Su retraso puede diferir del de la captura. <a id="monitor-youtube" target="_blank" rel="noopener noreferrer">Abrir en YouTube</a></p>
+  </section>
+  <div class="monitor-stages" aria-label="Etapas del directo">
+    <div id="stage-recording" class="stage"><span>01</span><div><h3>Grabando</h3><p id="stage-recording-detail">En espera</p></div></div>
+    <div id="stage-transcribing" class="stage"><span>02</span><div><h3>Transcribiendo</h3><p id="stage-transcribing-detail">En espera</p></div></div>
+    <div id="stage-searching" class="stage"><span>03</span><div><h3>Buscando momentos destacados</h3><p id="stage-searching-detail">En espera</p></div></div>
+    <div id="stage-exporting" class="stage"><span>04</span><div><h3>Creando clips</h3><p id="stage-exporting-detail">En espera</p></div></div>
+  </div>
+  <dl class="monitor-metrics">
+    <div><dt>Tiempo total grabado</dt><dd id="metric-recorded">00:00:00</dd></div>
+    <div><dt>Fragmentos revisados</dt><dd id="metric-reviewed">0</dd></div>
+    <div><dt>Momentos destacados</dt><dd id="metric-highlights">0</dd></div>
+    <div><dt>Candidatos descartados</dt><dd id="metric-rejected">0</dd></div>
+    <div><dt>Clips generados</dt><dd id="metric-generated">0</dd></div>
+    <div><dt>Clips en cola</dt><dd id="metric-queued">0</dd></div>
+  </dl>
+  <div class="panel monitor-decisions"><h2>Clips listos de esta sesión</h2><ul id="monitor-clips"><li>Aún no hay clips listos.</li></ul></div>
+  <div class="panel monitor-decisions"><h2>Decisiones recientes</h2><p class="hint">El interés se estima a partir de imagen, audio y narración. El contador agrupa candidatos parecidos del mismo bloque.</p><ul id="monitor-rejections"><li>Aquí aparecerán los motivos de descarte.</li></ul></div>
+</section>
+<div id="creation-view">
+<section class="workspace">
+<div id="live-workspace" class="panel">
+  <div class="section-title"><span class="step">01</span><h2>Configura el directo</h2></div>
+  <label for="youtube" id="live-url-label">Enlace del directo de YouTube o Kick</label>
+  <input id="youtube" type="url" placeholder="https://kick.com/tu-canal o enlace de YouTube">
+<section class="live-controls" aria-labelledby="live-title">
+  <h3 id="live-title">Clips automáticos del directo</h3>
+  <p class="hint">Pega el enlace del directo arriba. Elige cuánto material quieres analizar antes de generar clips.</p>
+  <div class="capture-mode">
+    <label class="toggle-option" for="live-fast"><span class="toggle-label"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m13 2-9 12h7l-1 8 10-12h-7l1-8Z"/></svg>Modo rápido</span><input id="live-fast" type="checkbox" role="switch" aria-describedby="live-mode-hint"><span class="toggle-track" aria-hidden="true"></span><span class="toggle-state" aria-hidden="true"><span class="toggle-on">Activado</span><span class="toggle-off">Desactivado</span></span></label>
+    <p id="live-mode-hint" class="hint">Bloques de alrededor de 5 minutos. Hay más momentos para comparar.</p>
+  </div>
+  <div class="live-settings">
+    <label for="clip-duration">Duración por clip
+      <select id="clip-duration">
+        <option value="20">20 segundos</option>
+        <option value="30" selected>30 segundos</option>
+        <option value="40">40 segundos</option>
+        <option value="50">50 segundos</option>
+        <option value="60">1 minuto</option>
+      </select>
+    </label>
+    <label for="clips-per-block">Máximo de clips por bloque
+      <select id="clips-per-block">
+        <option value="1">1 clip</option>
+        <option value="2" selected>2 clips</option>
+        <option value="3">3 clips</option>
+        <option value="4">4 clips</option>
+        <option value="5">5 clips</option>
+        <option value="6">6 clips</option>
+        <option value="7">7 clips</option>
+        <option value="8">8 clips</option>
+        <option value="9">9 clips</option>
+        <option value="10">10 clips</option>
+      </select>
+    </label>
+  </div>
+  <p class="hint">La cantidad depende de los momentos que caben sin repetir fragmentos. Más clips requieren más tiempo de exportación.</p>
+  <label id="live-profile-wrap" for="live-profile" hidden>Qué momentos buscar
+    <select id="live-profile"><option value="auto">Automático</option><option value="sports">Deportes / béisbol</option><option value="conversation">Conversación</option></select>
+    <span class="hint">En Deportes / béisbol se prioriza la acción en el campo y se transcribe alrededor de las posibles jugadas.</span>
+  </label>
+  <label id="live-format-wrap" for="live-format" hidden>Formato del clip
+    <select id="live-format"><option value="original">Original</option><option value="vertical">Vertical 9:16</option><option value="square">Cuadrado 1:1</option></select>
+  </label>
+  <section id="kick-settings" class="kick-settings" hidden>
+    <label class="toggle-option" for="kick-split"><span class="toggle-label">Pantalla dividida · Kick</span><input id="kick-split" type="checkbox" role="switch"><span class="toggle-track" aria-hidden="true"></span><span class="toggle-state" aria-hidden="true"><span class="toggle-on">Activada</span><span class="toggle-off">Desactivada</span></span></label>
+    <div id="kick-crop-settings" hidden>
+      <p class="hint">Salida vertical. Cámara arriba y gameplay abajo. Ajusta las dos zonas al tamaño del vídeo.</p>
+      <div class="connection-actions">
+        <button id="kick-preview">Ver fotograma del directo</button>
+        <label for="kick-region">Zona que estás ajustando
+          <select id="kick-region"><option value="camera">Cámara · arriba</option><option value="game">Gameplay · abajo</option></select>
+        </label>
+      </div>
+      <p id="kick-preview-status" class="hint" role="status">La cámara empieza en la esquina inferior derecha. El recorte de gameplay evita esa zona y puedes ajustarlo.</p>
+      <div id="kick-frame" class="kick-frame" hidden>
+        <img id="kick-image" alt="Fotograma del directo. Puedes arrastrar sobre él para encuadrar una zona.">
+        <div id="kick-camera-box" class="kick-box kick-camera-box" aria-hidden="true">Cámara</div>
+        <div id="kick-game-box" class="kick-box kick-game-box" aria-hidden="true">Gameplay</div>
+      </div>
+      <div class="kick-coordinates">
+        <label for="kick-x">Desde izquierda (%)<input id="kick-x" type="number" min="0" max="95" step="1" value="72"></label>
+        <label for="kick-y">Desde arriba (%)<input id="kick-y" type="number" min="0" max="95" step="1" value="68"></label>
+        <label for="kick-w">Ancho (%)<input id="kick-w" type="number" min="5" max="100" step="1" value="28"></label>
+        <label for="kick-h">Alto (%)<input id="kick-h" type="number" min="5" max="100" step="1" value="32"></label>
+      </div>
+    </div>
+  </section>
+  <label class="toggle-option" for="live-subtitles"><span class="toggle-label"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M10 10a2 2 0 1 0 0 4m7-4a2 2 0 1 0 0 4"/></svg>Subtítulos automáticos</span><input id="live-subtitles" type="checkbox" role="switch"><span class="toggle-track" aria-hidden="true"></span><span class="toggle-state" aria-hidden="true"><span class="toggle-on">Activado</span><span class="toggle-off">Desactivado</span></span></label>
+  <label id="live-burn-wrap" class="check-row" hidden><input id="live-burn" type="checkbox" checked> Dejar subtítulos visibles en el MP4</label>
+  <div class="connection-actions"><button id="live-start" class="primary">Iniciar automático</button><button id="live-finish" disabled>Terminar y generar clips</button><button id="live-stop" disabled>Cancelar captura</button></div>
+  <p id="live-state" aria-live="polite" class="hint">Captura detenida.</p><p id="live-activity" class="hint" hidden></p>
+  <p class="hint">Los ajustes se aplican al iniciar. Los bloques pendientes conservan su configuración. Detén la captura e inicia una nueva para cambiar estos ajustes.</p>
+</section></div>
+<div id="published-workspace" class="panel" hidden>
+  <div class="section-title"><span class="step">01</span><h2>Importa un video</h2></div>
+  <label for="published-url">Enlace de YouTube o TikTok</label>
+  <div class="url-row"><input id="published-url" type="url" placeholder="Pega el enlace del video"><button id="load">Importar video</button></div>
+  <p class="hint">Videos individuales accesibles de hasta 2 GB. También puedes importar un directo de YouTube que ya terminó.</p>
+  <label id="published-profile-wrap" for="published-profile" hidden>Qué momentos buscar
+    <select id="published-profile"><option value="auto">Automático</option><option value="sports">Deportes / béisbol</option><option value="conversation">Conversación</option></select>
+  </label>
+  <label id="published-format-wrap" for="published-format" hidden>Formato del clip al exportar
+    <select id="published-format"><option value="original">Original</option><option value="vertical">Vertical 9:16</option><option value="square">Cuadrado 1:1</option></select>
+    <span class="hint">Vertical y cuadrado conservan el plano completo, salvo si activas el seguimiento.</span>
+  </label>
+  <div class="divider"><span>o desde tu computadora</span></div><label class="file-zone" for="video"><span class="upload-icon"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 16V4m-4 4 4-4 4 4M4 16v4h16v-4"/></svg></span><strong>Seleccionar un video</strong><span>MP4, MOV o MKV · máximo 2 GB</span><input id="video" type="file" accept="video/*,.mkv"></label><p id="filename" class="source-summary">Todavía no has importado un video.</p>
+  <div class="job-panel">
+    <h3>Progreso del video publicado</h3>
+    <p id="published-status" class="hint" role="status">Esperando actividad del equipo.</p>
+    <progress id="published-progress" aria-label="Progreso de la etapa actual" max="100" hidden></progress>
+    <p id="published-eta" class="hint" hidden></p>
+    <button id="published-cancel" hidden>Cancelar operación</button>
+  </div>
+  <div class="connection-actions"><button id="clear-source">Retirar copia importada</button><button id="analyze" class="primary">Buscar momentos destacados</button></div>
+  <p class="hint">Puedes trabajar con un video publicado mientras se graba el directo.</p>
+</div>
+<div class="panel preview"><div class="section-title"><span class="step">02</span><h2 id="options-title">Marca de agua del directo</h2></div><div class="watermark-demo" aria-label="Ilustración del recorrido de la marca de agua, no es una previsualización del video"><img class="poster" src="poster.svg" alt="Ilustración de una línea de tiempo de video"><span id="design-title-preview" class="style-title" hidden></span><img class="moving-mark" src="logo-julio.jpg" alt=""></div><p class="hint">Ilustración de la marca: cambia de esquina cada 8 segundos. La exportación aplica tu selección al video real.</p><div id="published-times" hidden><p class="hint">Introduce los tiempos en segundos desde el inicio del video.</p><div class="times"><label for="start">Inicio (segundos)<input id="start" type="number" min="0" step="0.1" value="0"></label><label for="end">Final (segundos)<input id="end" type="number" min="0.1" step="0.1" value="30"></label></div></div><fieldset class="watermark-options"><legend>Tu marca de agua</legend><label class="toggle-option" for="remove-watermark"><span class="toggle-label">Quitar marca de agua</span><input id="remove-watermark" type="checkbox" role="switch"><span class="toggle-track" aria-hidden="true"></span><span class="toggle-state" aria-hidden="true"><span class="toggle-on">Activado</span><span class="toggle-off">Desactivado</span></span></label><label for="watermark-opacity">Intensidad <output id="opacity-value">30 %</output><input id="watermark-opacity" type="range" min="15" max="50" step="5" value="30"></label><p class="hint">Pequeña y semitransparente, fuera del centro. La opción se aplica a la próxima exportación desde el original.</p></fieldset>
+<details id="design-options" class="export-options" hidden>
+  <summary>Encuadre y título</summary>
+  <label id="design-face-wrap" class="toggle-option face-option" for="design-face" hidden><span class="toggle-label"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5"/><circle cx="12" cy="11" r="4"/><path d="M8 17q4-3 8 0"/></svg>Seguir la cara</span><input id="design-face" type="checkbox" role="switch" aria-describedby="design-face-hint"><span class="toggle-track" aria-hidden="true"></span><span class="toggle-state" aria-hidden="true"><span class="toggle-on">Activado</span><span class="toggle-off">Desactivado</span></span></label>
+  <p id="design-face-hint" class="hint" hidden>Para Shorts y TikTok. El encuadre sigue a la cara en formato vertical.</p>
+  <fieldset id="design-title-tools" class="title-tools" hidden>
+    <legend>Título en el video</legend>
+    <label for="design-title">Texto<input id="design-title" type="text" maxlength="64" placeholder="Escribe tu título"></label>
+    <div class="title-grid">
+      <label for="design-color">Color<input id="design-color" type="color" value="#ffffff"></label>
+      <label for="design-position">Posición<select id="design-position"><option value="top">Arriba</option><option value="center">Centro</option><option value="bottom">Abajo</option></select></label>
+      <label for="design-size">Tamaño<select id="design-size"><option value="small">Pequeño</option><option value="medium" selected>Mediano</option><option value="large">Grande</option></select></label>
+      <label for="design-style">Fondo<select id="design-style"><option value="plate">Caja oscura</option><option value="outline">Contorno</option></select></label>
+      <label for="design-duration">En pantalla<select id="design-duration"><option value="intro">Primeros 3 s</option><option value="full">Todo el clip</option></select></label>
+    </div>
+  </fieldset>
+</details>
+<fieldset id="caption-tools" class="title-tools" hidden>
+  <legend>Estilo de subtítulos</legend>
+  <div id="caption-catalog" class="caption-catalog" role="group" aria-label="Estilos de subtítulos"></div>
+  <div id="caption-demo" class="caption-demo" aria-label="Ejemplo de estilo"></div>
+  <p class="hint">Ejemplo visual. La exportación usa los tiempos de la voz; si faltan tiempos por palabra, los estima dentro de cada frase.</p>
+  <div class="title-grid">
+    <label for="caption-color">Color<input id="caption-color" type="color" value="#ffffff"></label>
+    <label for="caption-size">Tamaño<select id="caption-size"><option value="small">Pequeño</option><option value="medium" selected>Mediano</option><option value="large">Grande</option></select></label>
+    <label for="caption-position">Posición<select id="caption-position"><option value="bottom">Abajo</option><option value="center">Centro</option><option value="top">Arriba</option></select></label>
+    <label for="caption-accent">Resaltado<input id="caption-accent" type="color" value="#a8e986"></label>
+    <label for="caption-font">Tipografía<select id="caption-font"><option value="barlow">Condensada</option><option value="sans">Arial</option><option value="serif">Georgia</option></select></label>
+    <label for="caption-outline">Contorno<select id="caption-outline"><option value="0">Sin contorno</option><option value="2" selected>Normal</option><option value="4">Grueso</option></select></label>
+    <label for="caption-shadow">Sombra<select id="caption-shadow"><option value="0">Sin sombra</option><option value="1" selected>Suave</option><option value="3">Marcada</option></select></label>
+  </div>
+  <label class="check-row"><input id="caption-animations" type="checkbox" checked> Animaciones y resaltado de palabras</label>
+</fieldset>
+<div id="published-export" hidden><label class="toggle-option" for="export-subtitles"><span class="toggle-label"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M10 10a2 2 0 1 0 0 4m7-4a2 2 0 1 0 0 4"/></svg>Subtítulos automáticos</span><input id="export-subtitles" type="checkbox" role="switch"><span class="toggle-track" aria-hidden="true"></span><span class="toggle-state" aria-hidden="true"><span class="toggle-on">Activado</span><span class="toggle-off">Desactivado</span></span></label><label id="export-burn-wrap" class="check-row" hidden><input id="export-burn" type="checkbox" checked> Dejar subtítulos visibles en el MP4</label><button id="export" class="primary wide">Exportar clip MP4 →</button><p class="hint">Hasta 1 minuto por clip. Elige Original para mantener la proporción del vídeo.</p></div></div></section>
+<section id="published-suggestions" class="panel suggestions" hidden><div class="section-title"><span class="step">03</span><h2>Momentos sugeridos</h2></div><div id="suggestions" class="empty">Importa un video y busca momentos destacados.</div></section></div>
+<section id="resultados" class="panel" hidden><div class="section-title"><h2>Tus clips</h2><span class="badge">MP4 · H.264</span></div><div id="clips" class="empty">Los clips exportados aparecerán aquí para descargarlos.</div>
+<div id="clip-editor" class="clip-editor" aria-labelledby="editor-heading" hidden>
+  <div class="editor-header">
+    <div><h3 id="editor-heading" tabindex="-1">Editor de clips</h3><p id="editor-name" class="hint"></p></div>
+    <button id="editor-close">Cerrar</button>
+  </div>
+  <div class="editor-layout">
+    <div class="editor-player">
+      <div class="editor-screen"><video id="editor-video" controls playsinline preload="metadata" aria-label="Vista previa del clip original"></video><span id="editor-title-preview" class="style-title" hidden></span></div>
+      <p class="hint">Mueve el reproductor a donde quieras marcar un corte. Los tiempos corresponden al clip original.</p>
+    </div>
+    <fieldset id="editor-fields" class="editor-fields" aria-label="Tiempos de edición" disabled>
+      <div class="editor-times">
+        <div><label for="editor-start">Conservar desde (s)<input id="editor-start" type="number" min="0" step="0.001"></label><button id="editor-start-now">Usar posición actual</button></div>
+        <div><label for="editor-end">Conservar hasta (s)<input id="editor-end" type="number" min="0" step="0.001"></label><button id="editor-end-now">Usar posición actual</button></div>
+      </div>
+      <div id="editor-cuts"></div>
+      <p class="hint">Añade un tramo para quitar una parte de la selección. Puedes quitar hasta ocho tramos.</p>
+      <button id="editor-add-cut">+ Añadir tramo para quitar</button>
+      <fieldset id="editor-design" class="title-tools" hidden>
+        <legend>Encuadre y título de la copia</legend>
+        <label for="editor-format">Formato<select id="editor-format"><option value="original">Original</option><option value="vertical">Vertical 9:16</option><option value="square">Cuadrado 1:1</option></select></label>
+        <label id="editor-face-wrap" class="toggle-option face-option" for="editor-face" hidden><span class="toggle-label">Seguir la cara</span><input id="editor-face" type="checkbox" role="switch"><span class="toggle-track" aria-hidden="true"></span><span class="toggle-state" aria-hidden="true"><span class="toggle-on">Activado</span><span class="toggle-off">Desactivado</span></span></label>
+        <div id="editor-title-tools" hidden>
+          <label for="editor-title">Título nuevo en el video<input id="editor-title" type="text" maxlength="64" placeholder="Escribe tu título"></label>
+          <div class="title-grid">
+            <label for="editor-color">Color<input id="editor-color" type="color" value="#ffffff"></label>
+            <label for="editor-position">Posición<select id="editor-position"><option value="top">Arriba</option><option value="center">Centro</option><option value="bottom">Abajo</option></select></label>
+            <label for="editor-size">Tamaño<select id="editor-size"><option value="small">Pequeño</option><option value="medium" selected>Mediano</option><option value="large">Grande</option></select></label>
+            <label for="editor-style">Fondo<select id="editor-style"><option value="plate">Caja oscura</option><option value="outline">Contorno</option></select></label>
+            <label for="editor-duration">En pantalla<select id="editor-duration"><option value="intro">Primeros 3 s</option><option value="full">Todo el clip</option></select></label>
+          </div>
+        </div>
+      </fieldset>
+      <label class="toggle-option" for="editor-subtitles"><span class="toggle-label"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M10 10a2 2 0 1 0 0 4m7-4a2 2 0 1 0 0 4"/></svg>Subtítulos en la copia</span><input id="editor-subtitles" type="checkbox" role="switch"><span class="toggle-track" aria-hidden="true"></span><span class="toggle-state" aria-hidden="true"><span class="toggle-on">Activado</span><span class="toggle-off">Desactivado</span></span></label>
+      <label id="editor-burn-wrap" class="check-row" hidden><input id="editor-burn" type="checkbox" checked> Dejar subtítulos visibles en el MP4</label>
+      <fieldset id="edit-caption-tools" class="title-tools" hidden>
+        <legend>Estilo de subtítulos</legend>
+        <div id="edit-caption-catalog" class="caption-catalog" role="group" aria-label="Estilos de subtítulos en la copia"></div>
+        <div id="edit-caption-demo" class="caption-demo" aria-label="Ejemplo de estilo"></div>
+        <p class="hint">Ejemplo visual. Los cambios se aplican al guardar la copia MP4.</p>
+        <div class="title-grid">
+          <label for="edit-caption-color">Color<input id="edit-caption-color" type="color" value="#ffffff"></label>
+          <label for="edit-caption-size">Tamaño<select id="edit-caption-size"><option value="small">Pequeño</option><option value="medium" selected>Mediano</option><option value="large">Grande</option></select></label>
+          <label for="edit-caption-position">Posición<select id="edit-caption-position"><option value="bottom">Abajo</option><option value="center">Centro</option><option value="top">Arriba</option></select></label>
+          <label for="edit-caption-accent">Resaltado<input id="edit-caption-accent" type="color" value="#a8e986"></label>
+          <label for="edit-caption-font">Tipografía<select id="edit-caption-font"><option value="barlow">Condensada</option><option value="sans">Arial</option><option value="serif">Georgia</option></select></label>
+          <label for="edit-caption-outline">Contorno<select id="edit-caption-outline"><option value="0">Sin contorno</option><option value="2" selected>Normal</option><option value="4">Grueso</option></select></label>
+          <label for="edit-caption-shadow">Sombra<select id="edit-caption-shadow"><option value="0">Sin sombra</option><option value="1" selected>Suave</option><option value="3">Marcada</option></select></label>
+        </div>
+        <label class="check-row"><input id="edit-caption-animations" type="checkbox" checked> Animaciones y resaltado de palabras</label>
+      </fieldset>
+      <details id="caption-corrections-wrap" hidden><summary>Corregir palabras</summary><p class="hint">Los tiempos de cada frase se conservan. Si cambias el número de palabras, su reparto dentro de la frase se estima de nuevo. Vacía una frase para omitirla en la copia.</p><div id="caption-corrections" class="caption-corrections"></div></details>
+      <p id="editor-captions-hint" class="hint">Si el clip tiene subtítulos, puedes verlos aquí. Si necesita generarlos, Julio Clip analizará el audio al guardar.</p>
+      <output id="editor-length" class="editor-output"></output>
+      <button id="editor-save" class="primary" disabled>Guardar copia MP4</button>
+      <p class="hint">La copia admite hasta un minuto. El clip original se conserva en la biblioteca.</p>
+    </fieldset>
+  </div>
+  <p id="editor-status" role="status"></p>
+  <button id="editor-copy" hidden>Abrir la copia</button>
+</div>
+</section>
+<section id="library-storage" class="panel" hidden><h2>Espacio y papelera</h2><p id="storage-state" class="hint">El diagnóstico requiere conexión.</p><div class="times"><label for="quota">Límite de archivos (GB)<input id="quota" type="number" min="2" max="1000" value="10"></label><label for="max-clips">Clips activos máximos<input id="max-clips" type="number" min="1" max="500" value="50"></label></div><button id="save-storage">Guardar límites</button><p class="hint">Los clips antiguos pasan a la papelera al superar el máximo. La papelera también ocupa espacio. Al llegar al límite de GB o a la reserva de disco, se detiene la captura; no se borran clips a escondidas.</p><h3>Papelera recuperable</h3><div id="trash" class="empty">Sin datos de biblioteca.</div><div class="connection-actions"><button id="empty-trash">Vaciar papelera…</button><button id="clear-queue">Descartar bloques pendientes…</button></div></section><section id="diagnostico" class="panel" hidden><h2>Estado del equipo</h2><p id="status" aria-live="polite">Esperando diagnóstico.</p><div id="requirements" class="requirements"></div><p id="tools-state" class="hint" role="status">Comprobando las herramientas del equipo.</p><div class="connection-actions"><button id="refresh-tools">Volver a comprobar herramientas</button><button id="prepare-mac" hidden>Preparar herramientas para Mac</button></div><p id="diagnostic-help" class="hint">Mantén abierta la aplicación mientras procesas o capturas. Desde esta sección puedes comprobar las herramientas locales.</p></section><footer>Hecho para crear con calma. <span>Julio Clip / Procesamiento local</span></footer></main></body></html>

@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.env*
+*Codigos*
+*Privados*/
+app/runtime/
+app/bin/
+app/vision/
+*.bin
+*.onnx

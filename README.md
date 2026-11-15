@@ -7,6 +7,7 @@ Interfaz web local para Windows 10/11 de 64 bits. El procesamiento se realiza en
 ## Esta actualización
 
 - Ocho estilos de subtítulos con tarjetas, ejemplos y opciones de color, resaltado, tamaño, fuente, contorno, sombra y posición.
+- Biblioteca con miniaturas verticales 9:16, sin nombres de archivo visibles y recuperación de miniaturas ausentes de clips antiguos.
 - Animaciones y karaoke incrustados en el MP4 con FFmpeg/libass. Opción de desactivar las animaciones.
 - Tiempos por palabra de Whisper, frases legibles y corrección manual. Cuando faltan tiempos válidos se estima la distribución dentro de la frase.
 - Base limpia para corregir o quitar los subtítulos en clips nuevos. Los clips antiguos con letras incrustadas conservan esas letras.
@@ -27,6 +28,6 @@ Para desarrollo, trabaja sobre una copia del paquete descargado y sustituye sus 
 
 ## Validación y límites
 
-102 pruebas de Python pasaron, incluidas exportaciones con FFmpeg, audio, los ocho estilos, resaltado visible, corrección y retirada de subtítulos, papelera y Whisper real; también pasaron las pruebas de JavaScript y la revisión visual del catálogo. La muestra de reconocimiento real es inglesa. La precisión con tu voz en español y los cambios de hablante en tus transmisiones necesitan validación con material real. La selección de momentos y anuncios usa indicios, no comprensión infalible.
+103 pruebas de Python pasaron, incluidas exportaciones con FFmpeg, audio, los ocho estilos, resaltado visible, corrección y retirada de subtítulos, papelera y Whisper real; también pasaron las pruebas de JavaScript y la revisión visual del catálogo. La muestra de reconocimiento real es inglesa. La precisión con tu voz en español y los cambios de hablante en tus transmisiones necesitan validación con material real. La selección de momentos y anuncios usa indicios, no comprensión infalible.
 
 Más instrucciones en `app/ACTUALIZACION-2026-11-14.md`.
