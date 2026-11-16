@@ -79,7 +79,8 @@ class Tests(unittest.TestCase):
         self.assertEqual(self.request('/clips/../../server.py')[0], 404)
 
     def test_upload_and_state(self):
-        self.assertEqual(self.request('/api/upload', 'POST', b'test-video', self.auth())[0], 200)
+        with patch.object(app,'inspect_media',return_value={'format':{'duration':'12'},'streams':[{'codec_type':'video'}]}):
+            self.assertEqual(self.request('/api/upload', 'POST', b'test-video', self.auth())[0], 200)
         self.assertEqual((app.DATA / 'imported.video').read_bytes(), b'test-video')
         state = json.loads(self.request('/api/state')[1])
         self.assertIs(state['source'], True)
@@ -117,7 +118,7 @@ class Tests(unittest.TestCase):
 
     def test_invalid_bounds(self):
         self.assertEqual(app.bounds(15, 75), (15, 75))
-        for a, b in ((-1, 2), (2, 1), (0, 60.1), ('nan', 2), (0, 'inf')):
+        for a, b in ((-1, 2), (2, 1), (0, 180.1), ('nan', 2), (0, 'inf')):
             with self.assertRaises(ValueError):
                 app.bounds(a, b)
 
@@ -220,7 +221,7 @@ class Tests(unittest.TestCase):
     def test_bad_live_settings_never_start_capture(self):
         with patch.object(app, 'live') as live:
             for settings in ({'clip_seconds': 21}, {'clip_seconds': '20'}, {'clip_seconds': 60.0},
-                             {'clips_per_block': 11}, {'clips_per_block': 0}, {'clips_per_block': True},
+                             {'clips_per_block': 51}, {'clips_per_block': 0}, {'clips_per_block': True},
                              {'clips_per_block': None}):
                 payload = {'url': 'https://youtu.be/abc', **settings}
                 with self.subTest(settings=settings):
@@ -260,7 +261,7 @@ class Tests(unittest.TestCase):
             {'offsets': {'from': 98000, 'to': 103000}, 'text': 'Un cierre'},
         ]}
         picks = app.propose(data)
-        self.assertEqual([(p['start'], p['end']) for p in picks], [(8, 68), (96, 123)])
+        self.assertEqual([(p['start'], p['end']) for p in picks], [(8, 80), (96, 123)])
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

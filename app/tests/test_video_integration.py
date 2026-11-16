@@ -506,7 +506,7 @@ class VideoIntegration(unittest.TestCase):
             logo = Path(__file__).resolve().parents[1] / 'web/logo-julio.jpg'
             for end, marked in ((60.7, False), (60.7, True), (60.69, True)):
                 with self.subTest(end=end, marked=marked):
-                    args = export_args(FFMPEG, source, output, .7, end, probe(source), logo, marked)
+                    args = export_args(FFMPEG, source, output, .7, end, probe(source), logo, marked,max_duration=60)
                     subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True, timeout=45)
                     info = probe(output)
                     duration = float(info['format']['duration'])

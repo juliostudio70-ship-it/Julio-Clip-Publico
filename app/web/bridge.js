@@ -34,7 +34,7 @@
     if (!approved || Date.now() >= expires || event.origin !== origin || event.source !== remote) return;
     var d = event.data;
     if (!d || d.type !== 'julio-request' || d.challenge !== challenge || !/^[a-f0-9]{24}$/.test(d.id) || inflight[d.id]) return;
-    var methods = ['state', 'diagnostics', 'youtube', 'analyze', 'export', 'edit', 'clip-info', 'upload', 'download', 'thumbnail', 'subtitles', 'trash', 'restore', 'empty-trash', 'storage', 'clear-source', 'clear-queue', 'live-start', 'live-stop', 'live-finish', 'published-cancel', 'kick-preview'];
+    var methods = ['state', 'diagnostics','preferences','project-save','editor-preview', 'youtube', 'analyze', 'export', 'batch-export', 'edit', 'clip-info', 'upload', 'download', 'thumbnail', 'subtitles', 'trash', 'restore', 'empty-trash', 'storage', 'clear-source', 'clear-queue', 'live-start', 'live-stop', 'live-finish', 'published-cancel', 'kick-preview'];
     if (methods.indexOf(d.method) === -1) return;
     var path = '/api/' + d.method, options = {};
     var binary = {download:'/clips/', thumbnail:'/thumbs/', subtitles:'/subtitulos/'};

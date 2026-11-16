@@ -80,11 +80,13 @@ def kept_ranges(options, duration):
         kept.append((start, end))
     length = sum(right-left for left, right in kept)
     if length < .25 or length > MAX_CLIP_SECONDS + 1e-9:
-        raise ValueError('Conserva entre 0,25 segundos y un minuto de video.')
+        raise ValueError('Conserva entre 0,25 segundos y 3 minutos de video.')
     return kept
 
 
-def trim_args(ffmpeg, source, output, probe, ranges, format_name='original', track=False, title=None):
+def trim_args(ffmpeg, source, output, probe, ranges, format_name='original', track=False, title=None, render_options=None):
+    from render_options import options, size as output_size, quality_args
+    values = options(render_options or {})
     has_audio = any(s['codec_type'] == 'audio' for s in probe['streams'])
     filters, inputs = [], []
     for i, (start, end) in enumerate(ranges):
@@ -96,8 +98,13 @@ def trim_args(ffmpeg, source, output, probe, ranges, format_name='original', tra
     filters.append(''.join(inputs) + f'concat=n={len(ranges)}:v=1:a={int(has_audio)}[video]' +
                    ('[audio]' if has_audio else ''))
     video = 'video'
-    if format_name in OUTPUT_SIZES:
-        layout, video = layout_graph(OUTPUT_SIZES[format_name], None, video, track)
+    target_size=output_size(format_name,values['resolution'])
+    if target_size is None and render_options is not None and 'resolution' in render_options:
+        from watermark import display_size
+        iw,ih=display_size(probe);short=values['resolution']
+        target_size=(round(iw/ih*short)//2*2,short) if iw>=ih else (short,round(ih/iw*short)//2*2)
+    if target_size:
+        layout, video = layout_graph(target_size, None, video, track, values['fit'], (values['frame_x'],values['frame_y']))
         filters.extend(layout)
     if title:
         filters.append(f'[{video}]{title_filter(title)}[titled]')
@@ -105,7 +112,12 @@ def trim_args(ffmpeg, source, output, probe, ranges, format_name='original', tra
     args = [ffmpeg, '-nostdin', '-y', '-i', str(source), '-filter_complex', ';'.join(filters), '-map', f'[{video}]']
     if has_audio:
         args += ['-map', '[audio]']
-    return args + encoding_args(probe, sum(end-start for start, end in ranges), output)
+    encoded = encoding_args(probe, sum(end-start for start, end in ranges), output)
+    if render_options is not None:
+        crf,preset = quality_args(values)
+        encoded[encoded.index('-crf')+1]=crf
+        encoded[encoded.index('-preset')+1]=preset
+    return args + encoded
 
 
 def whisper_cues(transcription):

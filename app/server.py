@@ -23,7 +23,10 @@ from reframe import FONT, face_commands, prepare_title, styling, vision
 from captions import ass_text, corrected
 from library import GUARD as LIBRARY_GUARD, MediaStore
 from license_client import LicenseGate
-from live import LiveController, capture_input, kick_channel, youtube_runtime_args
+from preferences import Preferences
+from projects import Projects
+from render_options import options as render_settings, post_args, retime_speed
+from live import LiveController, capture_input, kick_channel, twitch_channel, youtube_runtime_args
 from editing import (burn_subtitles_enabled, kept_ranges, retime_cues, srt_text, subtitle_settings,
                      subtitle_render_style, subtitles_enabled, trim_args, visible_cues, whisper_cues)
 from runtime_support import default_data_dir, child_options
@@ -44,16 +47,16 @@ if LICENSE_CONFIG.is_file():
 if not PUBLIC or '--smoke' in sys.argv:
     DATA = Path(os.environ.get('JULIO_DATA', str(DATA)))
 TOKEN = secrets.token_urlsafe(32)
-STATE = {'status': 'Listo', 'busy': False, 'source': None, 'source_platform': None,
+STATE = {'status': 'Listo', 'busy': False, 'source': str(DATA/'imported.video') if (DATA/'imported.video').is_file() else None, 'source_platform': None,
          'source_duration': None, 'clips': [], 'suggestions': [], 'edits': {}}
 LOCK = threading.Lock()
 PREVIEW_LOCK = threading.Lock()
 THUMBNAIL_LOCK = threading.Lock()
 PUBLISHED_JOB = None
-PUBLISHED_ACTIONS = {'youtube', 'analyze', 'export', 'upload'}
+PUBLISHED_ACTIONS = {'youtube', 'analyze', 'export', 'upload','edit','editor-preview','batch-export'}
 LIVE = None
 SHUTDOWN = threading.Event()
-CLIP_DURATIONS = (20, 30, 40, 50, MAX_CLIP_SECONDS)
+CLIP_DURATIONS = (20, 30, 40, 50, 60, 90, 120, 180)
 YOUTUBE_HOSTS = ('youtube.com', 'www.youtube.com', 'm.youtube.com', 'youtu.be')
 MAX_SOURCE_BYTES = 2 * 1024**3
 LICENSE_REQUIRED = 'Activa o renueva tu licencia de Julio Clip para continuar.'
@@ -113,7 +116,7 @@ class PublishedJob:
         with self.guard:
             self.check()
             yield
-            self.status = 'complete'
+            if not getattr(self,'batch',False):self.status = 'complete'
 
     def end(self, successful):
         with self.guard:
@@ -128,9 +131,9 @@ def live_clip_settings(options):
     seconds = options.get('clip_seconds', 30)
     count = options.get('clips_per_block', 2)
     if type(seconds) is not int or seconds not in CLIP_DURATIONS:
-        raise ValueError('Elige una duración de 20, 30, 40, 50 o 60 segundos.')
-    if type(count) is not int or not 1 <= count <= 10:
-        raise ValueError('Elige entre 1 y 10 clips por bloque.')
+        raise ValueError('Elige una duración de 20, 30, 40, 50, 60, 90, 120 o 180 segundos.')
+    if type(count) is not int or not 1 <= count <= 50:
+        raise ValueError('Elige entre 1 y 50 clips por bloque.')
     return seconds, count
 
 def tool(name):
@@ -156,7 +159,31 @@ def requirements():
         result['runtime-youtube'] = False
     return result
 
+PROCESS_GUARD=threading.Condition()
+PROCESS_COUNT=0
+
+@contextmanager
+def process_slot(cancel):
+    global PROCESS_COUNT
+    with PROCESS_GUARD:
+        limit=1 if Preferences(DATA).load()['performance']=='light' else 2
+        while PROCESS_COUNT>=limit:
+            if (cancel and cancel.is_set()) or SHUTDOWN.is_set():raise ValueError('Tarea detenida.')
+            PROCESS_GUARD.wait(.2)
+        PROCESS_COUNT+=1
+    try:yield
+    finally:
+        with PROCESS_GUARD:
+            PROCESS_COUNT-=1;PROCESS_GUARD.notify_all()
+
 def run(args, timeout=14400, cancel=None, on_line=None, stall_timeout=None, cwd=None):
+    if args and args[0] and Path(args[0]).stem.lower()=='ffmpeg' and 'libx264' in args:
+        threads={'light':1,'balanced':2,'high':4}[Preferences(DATA).load()['performance']]
+        args=args[:-1]+['-threads:v',str(threads),'-filter_threads','1','-filter_complex_threads','1']+args[-1:]
+    with process_slot(cancel):
+        return run_process(args,timeout,cancel,on_line,stall_timeout,cwd)
+
+def run_process(args, timeout=14400, cancel=None, on_line=None, stall_timeout=None, cwd=None):
     if cancel is None:
         cancel = SHUTDOWN
     if not args[0]:
@@ -244,9 +271,11 @@ def whisper_audio(audio, transcript, cancel=None, progress=None, duration=None, 
     model = ROOT / 'models/ggml-base.bin'
     if not model.is_file():
         raise ValueError('Falta el modelo local ggml-base.bin. Consulta el tutorial.')
-    command = [tool('whisper-cli'), '-m', str(model), '-f', str(audio), '-l', 'auto', '-ng', '-t', '2',
+    prefs=Preferences(DATA).load()
+    threads=1 if prefs['performance']=='light' else 2 if prefs['performance']=='balanced' else 4
+    command = [tool('whisper-cli'), '-m', str(model), '-f', str(audio), '-l', prefs['language'], '-ng', '-t', str(threads),
                '-ojf', '-ml', '64', '-sow', '-mc', '0', '-of', str(transcript.with_suffix(''))]
-    if fast:
+    if fast or prefs['performance'] != 'high':
         command += ['-bs', '1', '-bo', '1']
     if progress:
         progress.reset('Convirtiendo el audio en texto…', duration)
@@ -313,6 +342,7 @@ def review_highlights(source, probe, seconds, limit, profile, folder, cancel,
                 cues = list(restore_cue_times(whisper_cues(result), mapping))
         report('Comparando la acción en el campo con el audio y la narración…')
         picks, rejects = rank_sports(cues, duration, seconds, limit, gaps, visual, anchors, previous)
+        Preferences(DATA).record_analysis(str(source)+':'+str(Path(source).stat().st_mtime_ns),duration,len(picks))
         return picks, rejects, None
     if energy:
         report('Convirtiendo el audio en texto…', 'transcribing')
@@ -320,11 +350,13 @@ def review_highlights(source, probe, seconds, limit, profile, folder, cancel,
         cues = list(whisper_cues(result))
     report('Comparando imagen, conversación, contexto y reacciones…')
     candidates = limit*2 if sports else limit
-    picks, rejects = rank_moments(cues, duration, seconds, candidates, gaps, energy, visual, previous)
+    threshold={'selective':55,'balanced':39,'discovery':33}[Preferences(DATA).load()['sensitivity']]
+    picks, rejects = rank_moments(cues, duration, seconds, candidates, gaps, energy, visual, previous,threshold)
     if sports:
         anchors = sports_anchors(visual, energy, duration, limit)
         plays, rejected_plays = rank_sports(cues, duration, seconds, candidates, gaps, visual, anchors, previous)
         picks, rejects = choose_moments(picks+plays, rejects+rejected_plays, limit, count_variants=False)
+    Preferences(DATA).record_analysis(str(source)+':'+str(Path(source).stat().st_mtime_ns),duration,len(picks))
     return picks, rejects, cues
 
 def run_encoding(args, progress, label, duration, cancel, cwd=None):
@@ -350,7 +382,7 @@ def transcribe_clip(source, folder, duration, job=None, *, cancel=None, progress
 
 def publish_clip(store, name, metadata, render, captions=None, cancel=None, job=None,
                  composition=None, progress=None, burn_subtitles=False, subtitle_style=None,
-                 verify_motion=False):
+                 verify_motion=False, render_options=None, preview=False):
     store.check_space()
     with tempfile.TemporaryDirectory(prefix='exportando-', dir=store.root) as work:
         folder = Path(work)
@@ -376,7 +408,16 @@ def publish_clip(store, name, metadata, render, captions=None, cancel=None, job=
             if progress:
                 progress.reset('Codificando el MP4…')
             run(args, cancel=cancel, cwd=cwd)
-        duration = metadata['end']-metadata['start']
+        original_duration = metadata['end']-metadata['start']
+        values=render_settings(render_options or {})
+        speed=values['speed']
+        duration=original_duration/speed
+        if duration>MAX_CLIP_SECONDS+1e-8:
+            raise ValueError('La duración final supera 3 minutos.')
+        metadata['end']=metadata['start']+duration
+        metadata['resolution']=values['resolution']
+        metadata['width'],metadata['height']=display_size(inspect_media(rendered,cancel))
+        metadata['render_options']=values
         if verify_motion:
             try:
                 frozen = scan_video(rendered, duration, cancel).frozen_screen(0, duration)
@@ -384,7 +425,13 @@ def publish_clip(store, name, metadata, render, captions=None, cancel=None, job=
                 raise FrozenExport('El video exportado no se pudo reproducir.') from error
             if frozen:
                 raise FrozenExport('El video exportado se queda congelado dentro del clip.')
-        cues = visible_cues(captions(rendered, folder), duration) if captions else []
+        cues = visible_cues(retime_speed(captions(rendered, folder),speed), duration) if captions else []
+        if any(values[k]!=v for k,v in [('speed',1),('volume',1),('zoom',1),('effect','none'),('fade',False)]) or (render_options or {}).get('music'):
+            transformed=folder/'video-editado.mp4'
+            music=DATA/'music.audio' if (render_options or {}).get('music') else None
+            if music and not music.is_file():raise ValueError('Primero importa tu archivo de música.')
+            run(post_args(tool('ffmpeg'),rendered,transformed,inspect_media(rendered,cancel),values,original_duration,music),cancel=cancel)
+            rendered=transformed
         if captions and not cues and not metadata.get('burned_subtitles') and not metadata.get('captions_edited'):
             metadata['no_caption_speech'] = True
         if cues and not metadata.get('burned_subtitles'):
@@ -414,11 +461,15 @@ def publish_clip(store, name, metadata, render, captions=None, cancel=None, job=
                          '-c:v', 'copy', '-c:a', 'copy', '-c:s', 'mov_text', '-disposition:s:0', 'default']
             run(args + ['-movflags', '+faststart', str(subtitled)], cancel=cancel, cwd=folder if burn_subtitles else None)
             rendered = subtitled
+        if preview:
+            rendered.replace(DATA/'editor-preview.mp4')
+            return
+        metadata['width'],metadata['height']=display_size(inspect_media(rendered,cancel))
         thumb = folder / 'miniatura.jpg'
         if job:
             job.progress.reset('Creando la miniatura…')
         try:
-            position = max(0, min(4, (metadata['end']-metadata['start'])*.3))
+            position = max(0,min(duration-.04,values['cover_time'] if values['cover_time'] is not None else min(4,duration*.3)))
             run([tool('ffmpeg'), '-nostdin', '-y', '-ss', str(position), '-i', str(rendered),
                  '-map', '0:v:0', '-frames:v', '1', '-vf', 'scale=480:-2', '-q:v', '5', str(thumb)],
                 timeout=30, cancel=cancel)
@@ -512,10 +563,13 @@ def consume_live(path, options, stop):
         if len(relative.parts) >= 4 and relative.parts[0] == 'live':
             capture_key = options.get('capture_key') or relative.parts[1]
         previous = [clip['signature'] for clip in store.load()['clips']
-                    if capture_key and clip.get('capture_key') == capture_key and clip.get('signature')][-20:]
+                    if capture_key and clip.get('capture_key') == capture_key and clip.get('signature')][-200:]
         cues = None
         rejects = []
         # Un reintento conserva el orden de un bloque que pudo haber exportado parte de sus clips.
+        if not PUBLIC and monitor.snapshot()['generated']>=50:
+            if live().snapshot()['running'] and not live().snapshot()['finishing']:live().finish()
+            return False
         if not PUBLIC and plan.is_file():
             saved = json.loads(plan.read_text(encoding='utf-8'))
             picks, rejects = saved['picks'], saved['rejects']
@@ -543,6 +597,9 @@ def consume_live(path, options, stop):
         enabled, opacity = watermark_settings(options)
         quota = PublicQuota(DATA) if PUBLIC and picks else None
         for i, pick in enumerate(picks):
+            if not PUBLIC and monitor.snapshot()['generated']>=50:
+                if live().snapshot()['running'] and not live().snapshot()['finishing']:live().finish()
+                return False
             if stop.is_set():
                 return
             start, end = pick['start'], min(duration, pick['end'])
@@ -556,6 +613,9 @@ def consume_live(path, options, stop):
             if any(c['name'] == name for c in store.load()['clips']):
                 monitor.completed()
                 continue
+            dialogue=set(pick.get('dialogue_signature',[]))
+            if dialogue and any(len(dialogue & set(c.get('dialogue_signature',[])))/max(1,min(len(dialogue),len(c.get('dialogue_signature',[]))))>.72 for c in store.load()['clips'] if c.get('capture_key')==capture_key):
+                monitor.completed(rejection=dict(start=start,end=end,reason='Repite la conversación de otro clip seleccionado.'));continue
             signature = pick.get('signature', [])
             if signature and any(repeats_sequence(signature, seen) for seen in previous):
                 monitor.completed(rejection=dict(start=start, end=end, reason=DUPLICATE_REASON))
@@ -575,13 +635,13 @@ def consume_live(path, options, stop):
                                            'title': pick.get('title') or clip_title(pick.get('text', '')),
                                            'interest': pick.get('score') if 'title' in pick else None,
                                            'format': format_name, 'split': bool(split),
-                                           'capture_key': capture_key, 'signature': signature},
+                                           'capture_key': capture_key, 'signature': signature,'category':pick.get('category','general'),'dialogue_signature':pick.get('dialogue_signature',[])},
                              lambda output, **style: export_args(tool('ffmpeg'), path, output, start, end, probe,
                                                         ROOT / 'web/logo-julio.jpg', marked, opacity,
                                                         max_duration=30 if PUBLIC else MAX_CLIP_SECONDS,
-                                                        format_name=format_name, split=split, **style),
+                                                        format_name=format_name, split=split, render_options=options, **style),
                              captions, stop, composition=composition, progress=monitor.analysis if composition else None,
-                             burn_subtitles=burn, subtitle_style=caption_style, verify_motion=not PUBLIC)
+                             burn_subtitles=burn, subtitle_style=caption_style, verify_motion=not PUBLIC,render_options=options)
             except FrozenExport as error:
                 monitor.completed(rejection=dict(start=start, end=end, reason=str(error)))
                 continue
@@ -592,6 +652,7 @@ def consume_live(path, options, stop):
             monitor.completed(dict(name=name, title=pick.get('title') or clip_title(pick.get('text', ''))))
             if signature:
                 previous.append(signature)
+        if monitor.snapshot()['generated']>=50 and live().snapshot()['running'] and not live().snapshot()['finishing']:live().finish()
         if plan.is_file():
             plan.unlink()
     except UnreadableMedia as e:
@@ -625,7 +686,8 @@ def youtube_url(value):
 def start_live(payload):
     url = payload['url']
     is_kick = not PUBLIC and https_url(url).hostname in ('kick.com', 'www.kick.com')
-    url = kick_channel(url) if is_kick else youtube_url(url)
+    is_twitch=not PUBLIC and https_url(url).hostname in ('twitch.tv','www.twitch.tv')
+    url = kick_channel(url) if is_kick else twitch_channel(url) if is_twitch else youtube_url(url)
     watermark_settings(payload)
     payload = dict(payload)
     payload.pop('platform', None)
@@ -650,6 +712,9 @@ def start_live(payload):
         styling(payload, format_name, split)
         if is_kick:
             payload['platform'] = 'Kick'
+        if is_twitch:
+            payload['platform'] = 'Twitch'
+        render_settings(payload)
     if not (ROOT / 'models/ggml-base.bin').is_file():
         raise ValueError('Falta el modelo de IA. La captura automática necesita las dependencias completas.')
     live().start(url, payload)
@@ -685,6 +750,12 @@ def published_platform(value):
         if (path == '/watch' and re.fullmatch(r'[A-Za-z0-9_-]+', parse_qs(p.query).get('v', [''])[0])
                 or re.fullmatch(r'/(?:shorts|live|embed|v|clip)/[A-Za-z0-9_-]+', path)):
             return 'YouTube'
+    elif p.hostname in ('twitch.tv','www.twitch.tv') and re.fullmatch(r'/videos/[0-9]+',path):
+        return 'Twitch'
+    elif p.hostname=='clips.twitch.tv' and re.fullmatch(r'/[a-zA-Z0-9_-]+',path):
+        return 'Twitch'
+    elif p.hostname in ('kick.com','www.kick.com') and re.fullmatch(r'/[a-zA-Z0-9_-]+/videos/[a-fA-F0-9-]+',path):
+        return 'Kick'
     elif p.hostname in ('tiktok.com', 'www.tiktok.com'):
         if re.fullmatch(r'/@[\w.-]+/video/[0-9]+|/t/[A-Za-z0-9_-]+', path):
             return 'TikTok'
@@ -698,7 +769,7 @@ def import_published(url, job=None):
     runtime = youtube_runtime_args(tool) if platform == 'YouTube' else []
     if platform == 'YouTube' and not runtime:
         raise ValueError('Falta el runtime JavaScript para YouTube. Ejecuta Comprobar-Equipo.cmd.')
-    extractors = r'youtube$,youtube:clip$' if platform == 'YouTube' else r'TikTok$,vm\.tiktok$'
+    extractors = {'YouTube':r'youtube$,youtube:clip$','TikTok':r'TikTok$,vm\.tiktok$','Twitch':r'twitch:vod$,twitch:clips$','Kick':r'kick:vod$'}[platform]
     STATE['status'] = f'Importando video de {platform}…'
     MediaStore(DATA).check_space(MAX_SOURCE_BYTES)
     with tempfile.TemporaryDirectory(prefix='importando-', dir=DATA) as work:
@@ -744,13 +815,13 @@ def import_published(url, job=None):
         destination = DATA / 'imported.video'
         with job.commit() if job else nullcontext():
             source.replace(destination)
-            STATE.update(source=str(destination), source_platform=platform, source_duration=duration,
+            STATE.update(source=str(destination), source_platform=platform, source_duration=duration,source_revision=secrets.token_hex(8),
                          suggestions=[], status=f'Video de {platform} listo para recortar.')
 
 def bounds(start, end):
     start, end = float(start), float(end)
     if not all(math.isfinite(x) for x in (start, end)) or start < 0 or end <= start or end-start > MAX_CLIP_SECONDS + 1e-9:
-        raise ValueError('El final debe estar después del inicio. Usa un inicio no negativo y un clip de hasta 60 segundos.')
+        raise ValueError('El final debe estar después del inicio. Usa un inicio no negativo y un clip de hasta 180 segundos.')
     return start, end
 
 def propose(transcription, *, duration=None, seconds=None, limit=6, gaps=()):
@@ -793,6 +864,37 @@ def propose(transcription, *, duration=None, seconds=None, limit=6, gaps=()):
         clip['end'] = min(clip['end'], clip['start']+MAX_CLIP_SECONDS)
     return sorted(chosen, key=lambda c: c['start'])
 
+def export_published(payload,job=None):
+    source = STATE['source']
+    if not source:
+        raise ValueError('Primero importa un video.')
+    if payload.get('batch_key'):
+        existing=next((c for c in MediaStore(DATA).load()['clips'] if c.get('batch_key')==payload['batch_key'] and not c.get('trash') and MediaStore(DATA).path(c['name']).is_file()),None)
+        if existing:return
+    start, end = bounds(payload['start'], payload['end'])
+    enabled, opacity = watermark_settings(payload)
+    format_name, _ = layout_settings(payload)
+    follow, title = styling(payload, format_name)
+    probe = inspect_media(source, job)
+    if end > float(probe['format']['duration']):
+        raise ValueError('El final supera la duración del video.')
+    name = 'clip-' + secrets.token_hex(6) + '.mp4'
+    STATE['status'] = 'Exportando clip…'
+    captions = None
+    if subtitles_enabled(payload):
+        captions = lambda output, folder: transcribe_clip(output, folder, end-start, job)
+    composition = (source, probe, [(start, end)], follow, title) if follow or title else None
+    publish_clip(MediaStore(DATA), name, {'start': start, 'end': end, 'watermark': enabled,
+                                          'automatic': False, 'format': format_name,
+                                          'interest':payload.get('interest'),'category':payload.get('category','general'),'batch_key':payload.get('batch_key'),
+                                          'title': title['text'] if title else payload.get('selected_title')},
+                 lambda output, **style: export_args(tool('ffmpeg'), source, output, start, end, probe,
+                                            ROOT / 'web/logo-julio.jpg', enabled, opacity,
+                                            format_name=format_name, render_options=payload, **style), captions,
+                 cancel=job, job=job, composition=composition, burn_subtitles=burn_subtitles_enabled(payload),
+                 subtitle_style=subtitle_settings(payload),render_options=payload)
+
+
 def process(action, payload, job=None):
     successful = False
     try:
@@ -811,45 +913,41 @@ def process(action, payload, job=None):
             duration = float(probe['format']['duration'])
             STATE['source_duration'] = duration
             STATE['status'] = 'Revisando momentos…'
+            seconds,count=live_clip_settings({'clip_seconds':payload.get('clip_seconds',30),'clips_per_block':payload.get('clip_count',6)})
             with tempfile.TemporaryDirectory(prefix='analizando-', dir=DATA) as work:
                 folder = Path(work)
-                picks, _, _ = review_highlights(source, probe, 30, 6, profile, folder, job,
+                picks, rejected, _ = review_highlights(source, probe, seconds, count, profile, folder, job,
                                                progress=job.progress if job else None)
             suggestions = [dict(start=pick['start'], end=pick['end'], score=pick['score'], title=pick['title'],
-                                text=pick['title']) for pick in picks]
+                                text=pick['title'],category=pick.get('category','sports' if profile=='sports' else 'conversation'),reason=pick.get('reason')) for pick in picks]
             with job.commit() if job else nullcontext():
                 STATE['suggestions'] = suggestions
+                STATE['rejections']=rejected[-100:]
         elif action == 'export':
-            source = STATE['source']
-            if not source:
-                raise ValueError('Primero importa un video.')
-            start, end = bounds(payload['start'], payload['end'])
-            enabled, opacity = watermark_settings(payload)
-            format_name, _ = layout_settings(payload)
-            follow, title = styling(payload, format_name)
-            probe = inspect_media(source, job)
-            if end > float(probe['format']['duration']):
-                raise ValueError('El final supera la duración del video.')
-            name = 'clip-' + secrets.token_hex(6) + '.mp4'
-            STATE['status'] = 'Exportando clip…'
-            captions = None
-            if subtitles_enabled(payload):
-                captions = lambda output, folder: transcribe_clip(output, folder, end-start, job)
-            composition = (source, probe, [(start, end)], follow, title) if follow or title else None
-            publish_clip(MediaStore(DATA), name, {'start': start, 'end': end, 'watermark': enabled,
-                                                  'automatic': False, 'format': format_name,
-                                                  'title': title['text'] if title else None},
-                         lambda output, **style: export_args(tool('ffmpeg'), source, output, start, end, probe,
-                                                    ROOT / 'web/logo-julio.jpg', enabled, opacity,
-                                                    format_name=format_name, **style), captions,
-                         cancel=job, job=job, composition=composition, burn_subtitles=burn_subtitles_enabled(payload),
-                         subtitle_style=subtitle_settings(payload))
-        elif action == 'edit':
+            export_published(payload,job)
+        elif action == 'batch-export':
+            indices=payload.get('indices')
+            if not isinstance(indices,list) or not 1<=len(indices)<=50 or any(type(n) is not int or not 0<=n<len(STATE['suggestions']) for n in indices) or len(set(indices))!=len(indices):
+                raise ValueError('Selecciona entre 1 y 50 candidatos distintos.')
+            if job:job.batch=True
+            for position,index in enumerate(indices,1):
+                if job:job.check()
+                candidate=STATE['suggestions'][index]
+                import hashlib
+                path=Path(STATE['source'])
+                try:identity=(str(path),path.stat().st_mtime_ns,path.stat().st_size)
+                except OSError:identity=(str(path),None,None)
+                key_payload={k:v for k,v in payload.items() if k!='indices'}
+                key=hashlib.sha256(json.dumps([identity,candidate['start'],candidate['end'],key_payload],sort_keys=True).encode()).hexdigest()
+                STATE['status']=f'Exportando candidato {position} de {len(indices)}…'
+                export_published(dict(payload,start=candidate['start'],end=candidate['end'],
+                    selected_title=candidate.get('title'),interest=candidate.get('score'),category=candidate.get('category','general'),batch_key=key),job)
+        elif action in ('edit','editor-preview'):
             store = MediaStore(DATA)
-            original = store.active_clip(payload['name'])
-            clean_base = store.caption_base(original['name'])
+            original = ({'name':'imported.video','title':'Video importado'} if payload.get('name')=='imported.video' and STATE['source'] else store.active_clip(payload['name']))
+            clean_base = store.caption_base(original['name']) if original['name']!='imported.video' else DATA/'unused.clean.mp4'
             has_clean_base = original.get('editable_captions') and clean_base.is_file()
-            source = clean_base if has_clean_base else store.path(original['name'])
+            source = Path(STATE['source']) if original['name']=='imported.video' else clean_base if has_clean_base else store.path(original['name'])
             probe = inspect_media(source)
             format_name, _ = layout_settings(payload)
             follow, title = styling(payload, format_name)
@@ -872,11 +970,11 @@ def process(action, payload, job=None):
                                        'burned_subtitles': bool(original.get('burned_subtitles') and not has_clean_base),
                                        'title': title['text'] if title else original.get('title')},
                          lambda output, **style: trim_args(tool('ffmpeg'), source, output, probe, ranges,
-                                                          format_name=format_name, **style),
-                         captions, composition=composition,
+                                                          format_name=format_name,render_options=payload, **style),
+                         captions,cancel=job,job=job,composition=composition,
                          burn_subtitles=burn_subtitles_enabled(payload) and (has_clean_base or not original.get('burned_subtitles')),
-                         subtitle_style=subtitle_settings(payload))
-            edit_result(payload['id'], name=name)
+                         subtitle_style=subtitle_settings(payload),render_options=payload,preview=action=='editor-preview')
+            edit_result(payload['id'], **({'preview':True} if action=='editor-preview' else {'name':name}))
         elif action in ('trash', 'restore'):
             MediaStore(DATA).move(payload['name'], action == 'trash')
         elif action == 'empty-trash':
@@ -920,7 +1018,7 @@ def process(action, payload, job=None):
             STATE['status'] = 'Operación cancelada.'
         else:
             STATE['status'] = 'Error: ' + (str(e) if isinstance(e, ValueError) else 'No se pudo completar la operación; revisa el tutorial.')
-        if action == 'edit':
+        if action in ('edit','editor-preview'):
             edit_result(payload['id'], error=STATE['status'])
     finally:
         if job:
@@ -944,6 +1042,31 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def send_file(self,path,mime='video/mp4'):
+        try:
+            with path.open('rb') as handle:
+                length=path.stat().st_size;start=0;end=length-1;status=200
+                requested=self.headers.get('Range')
+                if requested:
+                    match=re.fullmatch(r'bytes=(\d*)-(\d*)',requested)
+                    if not match or not any(match.groups()):return self.send(416,{'error':'Rango inválido'})
+                    left,right=match.groups()
+                    if left:start=int(left);end=min(end,int(right)) if right else end
+                    else:start=max(0,length-int(right))
+                    if start>end or start>=length:return self.send(416,{'error':'Rango fuera del archivo'})
+                    status=206
+                self.send_response(status);self.send_header('Content-Type',mime)
+                self.send_header('Content-Length',str(end-start+1));self.send_header('Accept-Ranges','bytes')
+                self.send_header('Cache-Control','no-store');self.send_header('X-Content-Type-Options','nosniff')
+                if status==206:self.send_header('Content-Range',f'bytes {start}-{end}/{length}')
+                self.end_headers();handle.seek(start);remaining=end-start+1
+                while remaining:
+                    chunk=handle.read(min(remaining,1024*1024))
+                    if not chunk:break
+                    self.wfile.write(chunk);remaining-=len(chunk)
+        except (BrokenPipeError,ConnectionResetError):pass
+        except FileNotFoundError:return self.send(404,{'error':'Video no disponible'})
+
     def valid_host(self):
         return self.headers.get('Host') == '127.0.0.1:' + str(self.server.server_port)
 
@@ -960,6 +1083,12 @@ class Handler(BaseHTTPRequestHandler):
                                          'face_tracking': not PUBLIC and vision() is not None,
                                          'titles': not PUBLIC and FONT.is_file()}
                 state['published_job'] = PUBLISHED_JOB.snapshot() if PUBLISHED_JOB else None
+                prefs=Preferences(DATA)
+                state['storage']['breakdown']=MediaStore(DATA).breakdown()
+                state['preferences']=prefs.load()
+                state['dashboard']=prefs.dashboard(MediaStore(DATA).load()['clips'],STATE['busy'],state['live'])
+                state['capabilities']['twitch']=not PUBLIC
+                state['capabilities']['studio']=not PUBLIC
                 if LICENSE:
                     state['license'] = LICENSE.status()
                     if state['license']['state'] != 'active':
@@ -976,11 +1105,16 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(200, {'requirements': requirements(), 'platform': os.name})
         if path.startswith(('/clips/', '/thumbs/', '/subtitulos/')) and LICENSE and not LICENSE.allowed():
             return self.send(403, {'error': LICENSE_REQUIRED})
+        if path in ('/source-video','/editor-preview.mp4'):
+            if LICENSE and not LICENSE.allowed():return self.send(403,{'error':LICENSE_REQUIRED})
+            file=Path(STATE['source']) if path=='/source-video' and STATE['source'] else DATA/'editor-preview.mp4' if path=='/editor-preview.mp4' else None
+            if file and file.is_file():return self.send_file(file)
+            return self.send(404,{'error':'Video no disponible'})
         if path.startswith('/clips/'):
             name = path.split('/')[-1]
             if re.fullmatch(r'clip-[0-9a-f]{12}\.mp4', name) and any(x['name'] == name for x in MediaStore(DATA).view()['clips']):
                 try:
-                    return self.send(200, (DATA / name).read_bytes(), 'video/mp4')
+                    return self.send_file(DATA/name)
                 except FileNotFoundError:
                     pass
             return self.send(404, {'error': 'Clip no encontrado'})
@@ -999,6 +1133,8 @@ class Handler(BaseHTTPRequestHandler):
         files = {
             '/': ('index.html', 'text/html; charset=utf-8'),
             '/app.js': ('app.js', 'text/javascript; charset=utf-8'),
+            '/studio.js': ('studio.js', 'text/javascript; charset=utf-8'),
+            '/studio.css': ('studio.css', 'text/css; charset=utf-8'),
             '/style.css': ('style.css', 'text/css; charset=utf-8'),
             '/title-font.ttf': ('title-font.ttf', 'font/ttf'),
             '/logo.svg': ('logo.svg', 'image/svg+xml'),
@@ -1018,6 +1154,39 @@ class Handler(BaseHTTPRequestHandler):
         origin = 'http://127.0.0.1:' + str(self.server.server_port)
         if not self.valid_host() or self.headers.get('Origin') != origin or not secrets.compare_digest(self.headers.get('X-Julio-Token', ''), TOKEN):
             return self.send(403, {'error': 'Sesión local no autorizada'})
+        if self.path=='/api/project-save':
+            if not LOCK.acquire(False):return self.send(409,{'error':'Espera a que termine la tarea.'})
+            try:
+                check_license()
+                length=int(self.headers.get('Content-Length',0))
+                if not 2<=length<=65536:raise ValueError('Proyecto demasiado grande')
+                payload=json.loads(self.rfile.read(length));name=payload['name']
+                source=Path(STATE['source']) if name=='imported.video' and STATE['source'] else MediaStore(DATA).path(MediaStore(DATA).active_clip(name)['name'])
+                duration=float(inspect_media(source)['format']['duration'])
+                return self.send(200,Projects(DATA).save(name,payload,duration))
+            except (ValueError,OSError,KeyError,TypeError) as e:return self.send(400,{'error':str(e)})
+            finally:LOCK.release()
+        if self.path in ('/api/preferences','/api/maintenance-plan','/api/maintenance-clear'):
+            if not LOCK.acquire(False):return self.send(409,{'error':'Espera a que termine la operación antes de cambiar configuración o limpiar.'})
+            try:
+                if live().snapshot()['running']:raise ValueError('Termina o cancela el directo y espera a que cierre antes de limpiar o cambiar ajustes.')
+                length=int(self.headers.get('Content-Length',0))
+                if not 2<=length<=32768:raise ValueError('Solicitud inválida')
+                payload=json.loads(self.rfile.read(length))
+                if not isinstance(payload,dict):raise ValueError('Solicitud inválida')
+                prefs=Preferences(DATA)
+                if self.path=='/api/preferences':
+                    check_license()
+                    return self.send(200,prefs.save(payload))
+                temporary=payload.get('temporary_only',False)
+                if type(temporary) is not bool:raise ValueError('Solicitud inválida')
+                with THUMBNAIL_LOCK,LIBRARY_GUARD:
+                    if self.path=='/api/maintenance-plan':return self.send(200,prefs.plan(temporary))
+                    removed=prefs.clear(payload.get('confirmation'),payload.get('phrase'),temporary)
+                    if not temporary:STATE.update(source=None,source_platform=None,source_duration=None,suggestions=[],edits={})
+                return self.send(200,{'removed':removed,'message':'Limpieza terminada. Tu licencia permanece intacta.'})
+            except (ValueError,OSError,TypeError) as e:return self.send(400,{'error':str(e)})
+            finally:LOCK.release()
         if self.path == '/api/license/activate' and LICENSE:
             try:
                 size = int(self.headers.get('Content-Length', 0))
@@ -1026,7 +1195,13 @@ class Handler(BaseHTTPRequestHandler):
                 payload = json.loads(self.rfile.read(size))
                 if not isinstance(payload, dict):
                     raise ValueError('Solicitud de activación inválida.')
-                return self.send(200, LICENSE.activate(payload.get('code')))
+                alias=payload.get('device_alias')
+                if alias and (not isinstance(alias,str) or not 1<=len(alias.strip())<=64):raise ValueError('Alias de equipo inválido.')
+                result=LICENSE.activate(payload.get('code'))
+                if alias:
+                    try:LICENSE.rpc('device',p_alias=alias.strip())
+                    except (ValueError,OSError):result['message']+=' La licencia se activó; no se pudo guardar el alias opcional.'
+                return self.send(200,result)
             except (ValueError, UnicodeError) as e:
                 return self.send(400, {'error': str(e)})
         if (LICENSE and self.path not in ('/api/live-stop', '/api/published-cancel')
@@ -1046,8 +1221,8 @@ class Handler(BaseHTTPRequestHandler):
                 if self.path == '/api/kick-preview':
                     return self.send(200, kick_preview(payload['url']), 'image/jpeg')
                 if self.path == '/api/clip-info':
-                    clip = MediaStore(DATA).active_clip(payload['name'])
-                    return self.send(200, {'captions': clip.get('captions', [])})
+                    clip = {} if payload.get('name')=='imported.video' and STATE['source'] else MediaStore(DATA).active_clip(payload['name'])
+                    return self.send(200, {'captions': clip.get('captions', []),'project':Projects(DATA).get(payload['name']),'duration':STATE['source_duration'] if payload['name']=='imported.video' else clip.get('end',0)-clip.get('start',0)})
                 if self.path in ('/api/trash', '/api/restore'):
                     trash = self.path == '/api/trash'
                     MediaStore(DATA).move(payload['name'], trash)
@@ -1068,6 +1243,26 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(400, {'error': str(e)})
             except OSError:
                 return self.send(409, {'error': 'No se pudo mover el archivo. Si está abierto en otro programa, ciérralo y vuelve a intentar.'})
+        if self.path == '/api/music':
+            if not LOCK.acquire(False):return self.send(409,{'error':'Espera a que termine la tarea.'})
+            temporary=DATA/'music-upload.part'
+            try:
+                check_license()
+                length=int(self.headers.get('Content-Length',0))
+                if not 1<=length<=100*1024**2:raise ValueError('Importa música de hasta 100 MB.')
+                MediaStore(DATA).check_space(length)
+                with temporary.open('wb') as f:
+                    left=length
+                    while left:
+                        chunk=self.rfile.read(min(left,1024**2))
+                        if not chunk:raise ValueError('Audio incompleto')
+                        f.write(chunk);left-=len(chunk)
+                if not any(s['codec_type']=='audio' for s in inspect_media(temporary)['streams']):raise ValueError('El archivo no contiene audio.')
+                temporary.replace(DATA/'music.audio')
+                return self.send(200,{'message':'Música importada. Se mezclará a volumen suave (20 %).'})
+            except (ValueError,OSError) as e:return self.send(400,{'error':str(e)})
+            finally:
+                temporary.unlink(missing_ok=True);LOCK.release()
         if not LOCK.acquire(False):
             return self.send(409, {'error': 'Espera a que termine la operación actual'})
         owns_lock = True
@@ -1095,32 +1290,39 @@ class Handler(BaseHTTPRequestHandler):
                         f.write(chunk)
                         left -= len(chunk)
                         job.progress.report(1-left/size)
+                probe=inspect_media(upload_temp,job)
+                if not any(s.get('codec_type')=='video' for s in probe.get('streams',[])):raise ValueError('El archivo no contiene video compatible.')
+                duration=float(probe['format']['duration'])
+                if not math.isfinite(duration) or duration<=0:raise ValueError('El video no tiene duración válida.')
                 with job.commit():
                     upload_temp.replace(dest)
-                    STATE.update(source=str(dest), source_platform=None, source_duration=None,
+                    STATE.update(source=str(dest), source_platform=None, source_duration=duration,source_revision=secrets.token_hex(8),
                                  suggestions=[], status='Video importado', busy=False)
                 LOCK.release()
                 owns_lock = False
                 return self.send(200, {'ok': True})
             action = self.path.replace('/api/', '')
-            actions = ('youtube', 'analyze', 'export', 'edit', 'empty-trash', 'storage', 'clear-source', 'clear-queue')
+            actions = ('youtube', 'analyze', 'export', 'batch-export', 'edit', 'editor-preview', 'empty-trash', 'storage', 'clear-source', 'clear-queue')
             if DESKTOP and sys.platform == 'darwin':
                 actions += ('prepare-mac',)
-            if action not in actions or size > (65536 if action == 'edit' else 4096) or size < 2:
+            if action not in actions or size > (65536 if action in ('edit','editor-preview') else 4096) or size < 2:
                 raise ValueError('Solicitud inválida')
             payload = json.loads(self.rfile.read(size))
+            if action=='batch-export':
+                indices=payload.get('indices')
+                if not isinstance(indices,list) or not 1<=len(indices)<=50 or len(set(indices))!=len(indices) or any(type(n) is not int or not 0<=n<len(STATE['suggestions']) for n in indices):raise ValueError('Selecciona entre 1 y 50 candidatos distintos.')
             if action == 'youtube':
                 published_platform(payload['url'])
-            if action == 'export':
-                bounds(payload['start'], payload['end'])
+            if action in ('export','batch-export'):
+                if action=='export':bounds(payload['start'], payload['end'])
                 watermark_settings(payload)
                 subtitles_enabled(payload)
                 burn_subtitles_enabled(payload)
                 subtitle_settings(payload)
                 format_name, _ = layout_settings(payload)
                 styling(payload, format_name)
-            if action == 'edit':
-                MediaStore(DATA).path(payload['name'])
+            if action in ('edit','editor-preview'):
+                if payload.get('name')!='imported.video':MediaStore(DATA).path(payload['name'])
                 subtitles_enabled(payload)
                 burn_subtitles_enabled(payload)
                 subtitle_settings(payload)

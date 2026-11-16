@@ -130,15 +130,15 @@ async function main() {
   assert.equal(node('end').value,5.5);
   assert.match(node('filename').textContent,/TikTok/);
   assert.equal(node('youtube').value,'https://youtu.be/example');
-  node('start').value='0';node('end').value='61';node('export').onclick();
-  assert.match(node('notice').textContent,/60 segundos/);
+  node('start').value='0';node('end').value='181';node('export').onclick();
+  assert.match(node('notice').textContent,/180 segundos/);
   assert.equal(requests.some(r=>r.url==='/api/export'),false);
   context.location.hash='#resultados';handlers.hashchange();
   const visual=node('clips').children[0];
   assert.equal(node('clips').className,'clip-gallery');
   assert.equal(visual.children[0].src,'/thumbs/'+source.name);
   assert.equal(visual.children[0].loading,'lazy');
-  assert.equal(visual.children[1].children[0].className,'clip-title-accessible');
+  assert.equal(visual.children[1].children[0].className,'clip-title');
   assert.equal(visual.children[1].children[0].textContent.includes(source.name),false);
   assert.equal(node('resultados').hidden,false);
   assert.equal(node('creation-view').hidden,true);

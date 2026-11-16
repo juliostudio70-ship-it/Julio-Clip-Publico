@@ -50,9 +50,9 @@ def windows_protect(data, decrypt=False):
 
 
 def installation_seed(raw):
-    if raw[:1] == b'\x01':
+    if raw[:1] in (b'\x01',b'\x03'):
         return windows_protect(raw[1:], decrypt=True)
-    if raw[:1] == b'\x02' and len(raw) == 33:
+    if raw[:1] in (b'\x02',b'\x04') and len(raw) == 33:
         return raw[1:]
     raise ValueError('La instalación guardada es inválida.')
 
@@ -95,16 +95,17 @@ class LicenseGate:
             except FileNotFoundError:
                 seed = secrets.token_bytes(32)
                 try:
-                    encrypted = b'\x01' + windows_protect(seed)
+                    encrypted = b'\x03' + windows_protect(seed)
                 except OSError:
                     # Algunos perfiles administrados de Windows no disponen de DPAPI.
-                    encrypted = b'\x02' + seed
+                    encrypted = b'\x04' + seed
                 try:
                     with file.open('xb') as handle:
                         handle.write(encrypted)
                 except FileExistsError:
                     encrypted = file.read_bytes()
-            self.token = device_token(installation_seed(encrypted))
+            seed=installation_seed(encrypted)
+            self.token=(hashlib.sha256(b'JulioClip/random-installation/v2/'+seed).hexdigest() if encrypted[:1] in (b'\x03',b'\x04') else device_token(seed))
         return self.token
 
     def rpc(self, action, **data):
@@ -114,6 +115,8 @@ class LicenseGate:
         opener = build_opener(NoRedirect(), HTTPSHandler(context=verified_tls_context()))
         with opener.open(request, timeout=6) as response:
             result = json.loads(response.read(4096))
+        if action == 'device' and isinstance(result, dict) and result.get('ok') is True:
+            return result
         if not isinstance(result, dict) or not isinstance(result.get('state'), str):
             raise ValueError('Respuesta de licencias inválida.')
         return result
@@ -142,7 +145,7 @@ class LicenseGate:
         elif self.connection_failed and (state == 'inactive' or (state == 'active' and now >= self.lease_end)):
             state = 'offline'
         return {'state': state, 'days_remaining': math.ceil(remaining/86400) if state == 'active' else 0,
-                'whatsapp': self.whatsapp, 'price': 'RD$800 por 30 días'}
+                'whatsapp': self.whatsapp, 'price': 'RD$800 por 30 días','expires_at':self.result.get('expires_at')}
 
     def status(self):
         with self.lock:

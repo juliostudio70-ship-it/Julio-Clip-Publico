@@ -60,10 +60,25 @@ class MediaStore:
             clips = [c for c in d['clips'] if not c.get('trash') and self.path(c['name']).is_file()]
             trash = [c for c in d['clips'] if c.get('trash') and self.path(c['name'], True).is_file()]
             def summary(clip):
-                result = {key: value for key, value in clip.items() if key not in ('captions', 'signature', 'capture_key', 'dialogue_signature')}
+                result = {key: value for key, value in clip.items() if key not in ('captions', 'signature', 'capture_key', 'dialogue_signature','batch_key')}
                 result['thumbnail'] = self.thumbnail(clip['name'], bool(clip.get('trash'))).is_file()
                 return result
             return {'clips': [summary(c) for c in clips], 'trash': [summary(c) for c in trash], 'storage': {'used_gb': round(self.usage()/1024**3, 3), 'quota_gb': d['quota_gb'], 'max_clips': d['max_clips'], 'free_gb': round(shutil.disk_usage(self.root).free/1024**3, 2)}}
+
+    def breakdown(self):
+        result={'Clips':0,'Originales importados':0,'Proyectos y ajustes':0,'Temporales y cola':0,'Papelera':0}
+        for p in self.root.rglob('*'):
+            try:
+                if not p.is_file() or p.is_symlink():continue
+                relative=p.relative_to(self.root)
+                category=('Papelera' if relative.parts[0]=='papelera' else
+                    'Clips' if NAME.fullmatch(p.name) or p.name.startswith('clip-') else
+                    'Originales importados' if p.name in ('imported.video','music.audio') else
+                    'Proyectos y ajustes' if p.name in ('biblioteca.json','preferencias.json','proyectos.json','historial.json') else
+                    'Temporales y cola')
+                result[category]+=p.stat().st_size
+            except FileNotFoundError:continue
+        return result
 
     def active_clip(self, name):
         path = self.path(name)

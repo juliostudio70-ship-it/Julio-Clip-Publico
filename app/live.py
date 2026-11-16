@@ -54,6 +54,24 @@ def kick_channel(url):
     return 'https://kick.com/' + slug.lower()
 
 
+def twitch_channel(url):
+    parsed=urlparse(url)
+    channel=parsed.path.strip('/')
+    if (parsed.scheme!='https' or parsed.netloc.lower() not in ('www.twitch.tv','twitch.tv')
+            or not re.fullmatch(r'[a-zA-Z0-9_]{1,25}',channel)
+            or channel.lower() in ('videos','directory','downloads','settings','subscriptions','search')):
+        raise ValueError('Pega el enlace HTTPS de un canal de Twitch.')
+    return 'https://www.twitch.tv/'+channel.lower()
+
+
+def twitch_media(url):
+    try:
+        p=urlparse(url);host=p.hostname or ''
+        return p.scheme=='https' and p.port in (None,443) and p.username is None and any(
+            host==d or host.endswith('.'+d) for d in ('ttvnw.net','twitch.tv','twitchcdn.net'))
+    except ValueError:return False
+
+
 def kick_media(url):
     try:
         parsed = urlparse(url)
@@ -111,6 +129,8 @@ class LiveController:
             if not isinstance(fast_mode, bool):
                 raise ValueError('Activa o desactiva el modo rápido.')
             block_seconds = FAST_BLOCK_SECONDS if fast_mode else self.block_seconds
+            if 'clip_seconds' in options:
+                block_seconds=max(block_seconds,options['clip_seconds']+5)
             for name in ('ffmpeg', 'ffprobe', 'whisper-cli', 'yt-dlp'):
                 if not self.tool(name):
                     raise ValueError('Falta %s. Prepara las dependencias antes de capturar.' % name)
@@ -160,12 +180,13 @@ class LiveController:
 
     def _resolve(self, url, timeout=90):
         kick = urlparse(url).hostname in ('kick.com', 'www.kick.com')
-        platform = 'Kick' if kick else 'YouTube'
-        extractors = 'kick:live$' if kick else 'youtube$,youtube:tab$'
+        twitch=urlparse(url).hostname in ('twitch.tv','www.twitch.tv')
+        platform = 'Kick' if kick else 'Twitch' if twitch else 'YouTube'
+        extractors = 'kick:live$' if kick else 'twitch:stream$' if twitch else 'youtube$,youtube:tab$'
         args = [self.tool('yt-dlp'), '--ignore-config', '--no-plugin-dirs', '--use-extractors',
                 extractors, '--no-playlist', '--no-warnings',
                 '--skip-download', '--dump-single-json', '--ignore-no-formats-error', '-f', LIVE_FORMAT]
-        if not kick:
+        if not kick and not twitch:
             args += youtube_runtime_args(self.tool)
         args += ['--', url]
         self.resolver = subprocess.Popen(args, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
@@ -192,8 +213,10 @@ class LiveController:
             self.resolver=None
         if code:
             detail = stderr.lower()
-            if kick and (b'not currently live' in detail or b'not live' in detail):
-                raise NotLiveError('El canal de Kick no está emitiendo ahora.')
+            if (kick or twitch) and any(s in detail for s in (b'not currently live',b'not live',b'is offline')):
+                raise NotLiveError(f'El canal de {platform} no está emitiendo ahora.')
+            if twitch and any(s in detail for s in (b'403',b'429',b'subscriber',b'login')):
+                raise ValueError('Twitch restringió el acceso. Usa un directo público permitido o importa tu archivo; no se eluden restricciones.')
             if b'requested format is not available' in detail:
                 raise ValueError(f'{platform} no ofreció pistas compatibles de audio y video.')
             if b'winerror 10013' in detail:
@@ -211,10 +234,12 @@ class LiveController:
         inputs = tuple(track.get('url', '') for track in tracks)
         if len(inputs) not in (1, 2) or any(urlparse(media).scheme not in ('https', 'http') for media in inputs):
             raise ValueError(f'{platform} no ofreció pistas compatibles de audio y video.')
+        if twitch and not all(twitch_media(media) for media in inputs):
+            raise ValueError('Twitch no ofreció un servidor HTTPS de video reconocido.')
         if kick and not all(kick_media(media) for media in inputs):
             raise ValueError('Kick no ofreció un servidor HTTPS de video reconocido.')
         video_id = info.get('id')
-        if not kick and isinstance(video_id, str) and YOUTUBE_VIDEO_ID.fullmatch(video_id):
+        if not kick and not twitch and isinstance(video_id, str) and YOUTUBE_VIDEO_ID.fullmatch(video_id):
             self.state['video_id'] = video_id
         return inputs
 
@@ -257,7 +282,11 @@ class LiveController:
                     continue
             path, options = pending[0]
             try:
-                self.consume(path, options, self.stop_event)
+                consumed=self.consume(path, options, self.stop_event)
+                if consumed is False:
+                    # Límite de sesión: el bloque y su plan permanecen para reanudar.
+                    self.capture_stop.set()
+                    break
                 if self.stop_event.is_set():
                     break
                 path.with_suffix('.hecho').write_text('procesado\n', encoding='utf-8')

@@ -40,12 +40,14 @@ PIXELS = tuple((y, (y*VISUAL_WIDTH+x)*3) for y in range(3, VISUAL_HEIGHT-3)
 SAMPLE_COLUMNS = VISUAL_WIDTH-6
 SIGNATURE_PIXELS = tuple(row*SAMPLE_COLUMNS+col for row in range(1, VISUAL_HEIGHT-6, 3)
                          for col in range(1, SAMPLE_COLUMNS, 4))
+GAMEPLAY=re.compile(r'\b(partida|headshot|respawn|gameplay|fortnite|minecraft|warzone|clutch|gta|counter strike|call of duty)\b',re.I)
+GAME_EVENT=re.compile(r'\b(elimin[oó]|eliminado|victoria|ganamos|perdimos|gan[eé]|headshot|clutch|triple kill|no puede ser)\b',re.I)
 FREEZE_SECONDS = 2.0
 DUPLICATE_REASON = 'Repite una secuencia de un clip que ya se seleccionó.'
 
 
 def highlight_profile(value):
-    if value not in ('auto', 'sports', 'conversation'):
+    if value not in ('auto', 'sports', 'conversation','gameplay'):
         raise ValueError('Elige un perfil de momentos válido.')
     return value
 
@@ -290,7 +292,7 @@ def rank_sports(cues, duration, seconds, limit, gaps, visual, anchors, previous=
             score = round(min(98, 42+(22 if play else 0)+min(16, movement*120)+
                               min(18, max(0, rise-1)*8)+field_context))
             ranked.append(dict(start=start, end=end, score=score,
-                               title=clip_title(play) if play else 'Posible jugada en el campo'))
+                               title=clip_title(play) if play else 'Posible jugada en el campo',category='sports',reason='Movimiento en el campo y reacción de audio'+('; jugada narrada' if play else '')))
     return choose_moments(ranked, rejects, limit, count_variants=False, visual=visual, previous=previous)
 
 
@@ -434,7 +436,7 @@ def clip_title(text):
     return title[:1].upper() + title[1:] if title else 'Momento del directo'
 
 
-def rank_moments(cues, duration, seconds, limit, gaps=(), energy=(), visual=None, previous=()):
+def rank_moments(cues, duration, seconds, limit, gaps=(), energy=(), visual=None, previous=(), threshold=39):
     """Ventanas continuas y sin saltos. Puntúa señales de contexto y de reacción."""
     width = min(duration, seconds)
     if width < 3:
@@ -497,7 +499,9 @@ def rank_moments(cues, duration, seconds, limit, gaps=(), energy=(), visual=None
         score += min(16, len(DISCUSSION.findall(speech))*8)
         surprise = bool(SURPRISE.search(speech))
         score += 12 if surprise else 0
-        if not (reactions or turning or question_answer or DISCUSSION.search(speech) or surprise):
+        gameplay=bool(GAMEPLAY.search(speech))
+        if gameplay and GAME_EVENT.search(speech):score+=10
+        if not (reactions or turning or question_answer or DISCUSSION.search(speech) or surprise or (gameplay and GAME_EVENT.search(speech))):
             score -= 14
         # No premia frases cortadas aunque tengan palabras llamativas.
         clipped = sum(cue['start']+.15 < boundary < cue['end']-.15
@@ -507,7 +511,7 @@ def rank_moments(cues, duration, seconds, limit, gaps=(), energy=(), visual=None
         score -= min(20, 25*(1-len(distinct_lines)/len(nearby)))
         score -= min(18, len(FILLER.findall(speech))*4 + (1-unique/len(words))*12)
         score = min(99, max(0, round(score)))
-        if score < 39:
+        if score < threshold:
             reason = ('Corta una frase sin conservar suficiente contexto.' if clipped else
                       'Poca variedad o contexto, sin una reacción o giro claro.')
             rejects.append(dict(window, score=score, reason=reason))
@@ -516,7 +520,8 @@ def rank_moments(cues, duration, seconds, limit, gaps=(), energy=(), visual=None
         meaningful = next((line for line in informative if DISCUSSION.search(line) or TURN.search(line)),
                           max(informative, key=lambda line: len(set(WORD.findall(line.casefold()))), default=speech))
         fingerprint = sorted(set(' '.join(words[i:i+3]).casefold() for i in range(len(words)-2)))
-        ranked.append(dict(window, score=score, title=clip_title(meaningful), dialogue_signature=fingerprint))
+        ranked.append(dict(window, score=score, title=clip_title(meaningful), dialogue_signature=fingerprint,category='gameplay' if gameplay else 'conversation',
+            reason='Contexto y variedad de conversación'+('; reacción' if reactions else '')+('; pregunta y respuesta' if question_answer else '')+('; sorpresa' if surprise else '')+('; debate' if DISCUSSION.search(speech) else '')))
     return choose_moments(ranked, rejects, limit, count_variants=visual is None, visual=visual, previous=previous)
 
 

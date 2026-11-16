@@ -1,0 +1,57 @@
+{
+  "entorno": "Windows-10-10.0.19045-SP0",
+  "python": "3.13.17",
+  "tests": 115,
+  "fallos": 0,
+  "errores": 0,
+  "omitidas": 0,
+  "aprobadas": 115,
+  "javascript": [
+    {
+      "comando": "--check C:\\Users\\Administrator\\Documents\\Codex\\2026-11-04\\julio-clip-entrega-final-en-zip\\work\\src\\web\\app.js",
+      "codigo": 0,
+      "salida": ""
+    },
+    {
+      "comando": "--check C:\\Users\\Administrator\\Documents\\Codex\\2026-11-04\\julio-clip-entrega-final-en-zip\\work\\src\\web\\bridge.js",
+      "codigo": 0,
+      "salida": ""
+    },
+    {
+      "comando": "node C:\\Users\\Administrator\\Documents\\Codex\\2026-11-04\\julio-clip-entrega-final-en-zip\\work\\src\\tests\\test_bridge.js",
+      "codigo": 0,
+      "salida": "Puente: consentimiento, origen, ventana, reto, rutas, token, edición, subtítulos y revocación comprobados."
+    },
+    {
+      "comando": "node C:\\Users\\Administrator\\Documents\\Codex\\2026-11-04\\julio-clip-entrega-final-en-zip\\work\\src\\tests\\test_app.js",
+      "codigo": 0,
+      "salida": "Interfaz: diagnóstico, galería 9:16, subtítulos animados, corrección y guardado de una copia comprobados."
+    },
+    {
+      "comando": "node C:\\Users\\Administrator\\Documents\\Codex\\2026-11-04\\julio-clip-entrega-final-en-zip\\work\\src\\tests\\test_bridge_races.js",
+      "codigo": 0,
+      "salida": "Puente: revocación durante autorización, errores tardíos, cambio de sesión y cierre comprobados."
+    },
+    {
+      "comando": "node C:\\Users\\Administrator\\Documents\\Codex\\2026-11-04\\julio-clip-entrega-final-en-zip\\work\\src\\tests\\test_remote_app.js",
+      "codigo": 0,
+      "salida": "Web remota: ventana única, sustitución, recorrido de mensajes y desconexión comprobados en pruebas controladas."
+    }
+  ],
+  "modelo_sha256": "60ed5bc3dd14eea856493d334349b405782ddcaf0028d4b5df4088345fba2efe",
+  "macOS_verificado": false,
+  "Netlify_real_verificado": false,
+  "YouTube_real_verificado": false,
+  "inferencia": {
+    "motor": "whisper.cpp 1.7.6, compilación Windows x86_64 sin AVX/AVX2/FMA/F16C",
+    "muestra": "jfk.wav, inglés, repositorio whisper.cpp",
+    "inferencia": true,
+    "flujo_automatico_local": true,
+    "macOS_verificado": false,
+    "YouTube_real_verificado": false,
+    "segundos": 47.72,
+    "segmentos": 1,
+    "clips_generados": 1,
+    "nota": "Flujo de extracción, inferencia, selección y exportación real con archivo de prueba. La muestra es inglesa; no valida calidad en español ni una emisión real."
+  }
+}

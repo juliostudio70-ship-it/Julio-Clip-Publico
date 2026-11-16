@@ -5,14 +5,14 @@ from reframe import followed_panel, title_filter
 
 DEFAULT_OPACITY = 0.30
 POSITION_SECONDS = 8
-MAX_CLIP_SECONDS = 60
-OUTPUT_SIZES = {'vertical': (720, 1280), 'square': (720, 720)}
+MAX_CLIP_SECONDS = 180
+OUTPUT_SIZES = {'vertical': (720, 1280), 'square': (720, 720), 'landscape': (1280, 720)}
 
 
 def layout_settings(payload, allow_split=False):
     format_name = payload.get('format', 'original')
     if not isinstance(format_name, str) or format_name not in ('original', *OUTPUT_SIZES):
-        raise ValueError('Elige formato Original, Vertical 9:16 o Cuadrado 1:1.')
+        raise ValueError('Elige formato Original, Vertical 9:16 Horizontal 16:9 o Cuadrado 1:1.')
     split = payload.get('split')
     if split is None:
         return format_name, None
@@ -57,13 +57,18 @@ def display_size(probe):
     return width, height
 
 def export_args(ffmpeg, source, output, start, end, probe, logo, enabled=True, opacity=DEFAULT_OPACITY,
-                max_duration=MAX_CLIP_SECONDS, format_name='original', split=None, track=False, title=None):
+                max_duration=MAX_CLIP_SECONDS, format_name='original', split=None, track=False, title=None, render_options=None):
     args = [ffmpeg, '-nostdin', '-y', '-ss', str(start), '-i', str(source)]
     video = '0:v:0'
     graph = []
-    size = OUTPUT_SIZES.get(format_name)
+    from render_options import options, size as output_size, quality_args
+    values = options(render_options or {})
+    size = output_size(format_name, values['resolution'])
+    if size is None and render_options is not None and 'resolution' in render_options:
+        iw,ih=display_size(probe);short=values['resolution']
+        size=(round(iw/ih*short)//2*2,short) if iw>=ih else (short,round(ih/iw*short)//2*2)
     if size:
-        graph, video = layout_graph(size, split, track=track)
+        graph, video = layout_graph(size, split, track=track, fit=values['fit'], frame=(values['frame_x'], values['frame_y']))
     if enabled:
         width, height = size or display_size(probe)
         # Región del logo dentro del original suministrado de 1280 x 1280.
@@ -91,7 +96,12 @@ def export_args(ffmpeg, source, output, start, end, probe, logo, enabled=True, o
         args += ['-filter_complex', ';'.join(graph), '-map', f'[{video}]']
     else:
         args += ['-map', video]
-    return args + ['-map', '0:a:0?'] + encoding_args(probe, end-start, output, max_duration)
+    encoded = encoding_args(probe, end-start, output, max_duration)
+    if render_options is not None:
+        crf, preset = quality_args(values)
+        encoded[encoded.index('-crf')+1] = crf
+        encoded[encoded.index('-preset')+1] = preset
+    return args + ['-map', '0:a:0?'] + encoded
 
 
 def fit_panel(width, height):
@@ -99,9 +109,14 @@ def fit_panel(width, height):
             f'pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:color=0x151619,setsar=1')
 
 
-def layout_graph(size, split, source='0:v:0', track=False):
+def layout_graph(size, split, source='0:v:0', track=False, fit='auto', frame=(.5,.5)):
     width, height = size
     if not split:
+        if fit == 'crop' and not track:
+            x,y = frame
+            return [f'[{source}]setpts=PTS-STARTPTS,scale={width}:{height}:force_original_aspect_ratio=increase:force_divisible_by=2:reset_sar=1,crop={width}:{height}:(iw-ow)*{x}:(ih-oh)*{y},setsar=1[layout]'], 'layout'
+        if fit == 'contain' and not track:
+            return [f'[{source}]setpts=PTS-STARTPTS,{fit_panel(width,height)}[layout]'], 'layout'
         if track:
             return [f'[{source}]setpts=PTS-STARTPTS,{followed_panel(width, height)}[layout]'], 'layout'
         if height > width:
@@ -114,7 +129,7 @@ def layout_graph(size, split, source='0:v:0', track=False):
                     f'scale={width}:{height}:flags=fast_bilinear,setsar=1[back]',
                     '[back][front]overlay=(W-w)/2:(H-h)/2:shortest=1[layout]'], 'layout'
         return [f'[{source}]setpts=PTS-STARTPTS,{fit_panel(width, height)}[layout]'], 'layout'
-    camera_height = 448
+    camera_height = round(height*.35)//2*2
     graph = ['[0:v:0]setpts=PTS-STARTPTS,split=2[cam_source][game_source]']
     for name, output, panel_height, source in (
             ('camera', 'face', camera_height, 'cam_source'),

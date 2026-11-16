@@ -1,9 +1,8 @@
-Julio Clip Publico · Windows 10/11 de 64 bits
+Julio Clip Publico · Julio Clip 2026.11.15 · Windows 10/11 x64
 
-1. Extrae la carpeta completa. Haz doble clic en Abrir-Julio-Clip.cmd.
-2. Deja abierta la ventana de Julio Clip. Tu navegador abrirá la interfaz local.
-3. Introduce el código que te dio el administrador. Cada código sirve para una instalación y otorga 30 días desde su activación. Mantén internet disponible para que Julio Clip consulte tu licencia. La barra superior muestra los días restantes. Cuando venza, pulsa «Renovar por WhatsApp». Después de recibir otro código, introdúcelo en la pantalla de activación.
-4. Abre Directos, pega un enlace compatible y pulsa Iniciar. En Monitoreo puedes reproducir el directo de YouTube si permite inserción.
-5. Usa Mis clips para descargar o eliminar los resultados. Tus archivos quedan en %LOCALAPPDATA%/Julio Clip Suscripcion.
+Extrae toda esta carpeta y abre Abrir-Julio-Clip.cmd (junto a Julio-Clip-Windows).
+Se abre Inicio en el navegador. No hace falta escribir comandos. Deja la consola abierta mientras procesa.
+Activa con el código del administrador. Si estás actualizando en el mismo Windows, conserva tus datos: no necesitas otro código mientras la licencia siga vigente.
 
-El paquete ya incluye las herramientas. Para comprobarlas abre Comprobar-Equipo.cmd en Julio-Clip-Windows.
+En Tutorial encontrarás la guía. Revisa ACTUALIZACION-2026-11-15.md para funciones y límites.
+No borres %LOCALAPPDATA%/Julio Clip Suscripcion al actualizar.
