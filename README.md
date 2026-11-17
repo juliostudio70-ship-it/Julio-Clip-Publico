@@ -1,4 +1,4 @@
-# Julio Clip Público · 2026.11.15
+# Julio Clip Público · 2026.11.17
 
 Interfaz web local para Windows 10/11 de 64 bits. El procesamiento se realiza en el equipo del cliente. La edición pública requiere una licencia de 30 días y mantiene la misma configuración de validación del servidor.
 
@@ -6,12 +6,19 @@ Interfaz web local para Windows 10/11 de 64 bits. El procesamiento se realiza en
 
 ## Esta actualización
 
+- Transcripción en ventanas cortas con progreso real y cancelación; se sustituye el corte arbitrario de 4 minutos sin mensajes.
+- Subtítulos del clip final con tiempos DTW por palabra, revelado progresivo sin adelantar palabras futuras y ajuste manual de desfase.
+- Nuevos estilos Deslizar y Construcción, diez en total, renderizados en el MP4.
+- PNG propio transparente, guardado localmente, con posición, movimiento, tamaño y opacidad; disponible también en el editor y los proyectos.
+- Selector visible para rellenar 9:16 con recorte, conservar plano o fondo desenfocado. Mejor puntuación de historias con planteamiento y desenlace.
+
+
 - Inicio gris carbón con el logo original, estadísticas locales, biblioteca buscable y preferencias guardadas.
 - Hasta 50 clips por proceso, de hasta 180 segundos, según los momentos útiles detectados. Revisión de propuestas y exportación secuencial sin generar relleno.
 - Twitch añadido a la validación de enlaces y al extractor; acceso real sujeto a las condiciones de la plataforma.
 - Editor con proyectos locales, vista previa renderizada, recorte manual, formatos 9:16/16:9/1:1/original, 720p/1080p, velocidad, volumen, música propia, zoom, filtros, fundidos y portada. Une tramos del mismo video; no es multitrack.
 - Limpieza y restablecimiento con lista exacta y confirmación, conservando activación y originales externos. Reproducción HTTP por rangos.
-- Ocho estilos de subtítulos con tarjetas, ejemplos y opciones de color, resaltado, tamaño, fuente, contorno, sombra y posición.
+- Diez estilos de subtítulos con tarjetas, ejemplos y opciones de color, resaltado, tamaño, fuente, contorno, sombra y posición.
 - Biblioteca con miniaturas verticales 9:16, sin nombres de archivo visibles y recuperación de miniaturas ausentes de clips antiguos.
 - Animaciones y karaoke incrustados en el MP4 con FFmpeg/libass. Opción de desactivar las animaciones.
 - Tiempos por palabra de Whisper, frases legibles y corrección manual. Cuando faltan tiempos válidos se estima la distribución dentro de la frase.
@@ -33,8 +40,10 @@ Para desarrollo, trabaja sobre una copia del paquete descargado y sustituye sus 
 
 ## Validación y límites
 
-115 pruebas de Python pasaron, incluidas exportaciones con FFmpeg, audio, los ocho estilos, resaltado visible, corrección y retirada de subtítulos, papelera y Whisper real; también pasaron las pruebas de JavaScript y la revisión visual del catálogo. La muestra de reconocimiento real es inglesa. La precisión con tu voz en español y los cambios de hablante en tus transmisiones necesitan validación con material real. La selección de momentos y anuncios usa indicios, no comprensión infalible.
+128 pruebas de Python pasaron, incluidas exportaciones con FFmpeg, audio, los diez estilos, resaltado visible, corrección y retirada de subtítulos, papelera y Whisper real; también pasaron las pruebas de JavaScript y la revisión visual del catálogo. La muestra de reconocimiento real es inglesa. La precisión con tu voz en español y los cambios de hablante en tus transmisiones necesitan validación con material real. La selección de momentos y anuncios usa indicios, no comprensión infalible.
 
-Más instrucciones en `app/ACTUALIZACION-2026-11-15.md`.
+Se investigó OpenShorts como referencia, sin copiar su código ni añadir sus APIs externas. La inferencia DTW real se comprobó con voz inglesa; falta el MP4 concreto del cliente para reproducir su equipo y contenido.
+
+Más instrucciones en `app/ACTUALIZACION-2026-11-17.md`.
 
 El panel del propietario se distribuye por separado y no está incluido en este repositorio. Las licencias anteriores conservan su identidad y vencimiento. Pruebas adicionales de proyectos, límites 50/180, vista previa idéntica al MP4 y mantenimiento seguro pasaron. No se certifica la captura continua durante meses, exactitud perfecta de hablantes/anuncios ni compatibilidad universal con todas las PC.

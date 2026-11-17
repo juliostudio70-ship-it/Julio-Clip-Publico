@@ -36,13 +36,16 @@ def subtitle_settings(options):
     theme, font = style.get('theme', 'classic'), style.get('font', 'barlow')
     accent, animations = style.get('accent', '#A8E986'), style.get('animations', True)
     outline, shadow = style.get('outline', 2), style.get('shadow', 1)
+    reveal, delay = style.get('reveal','progressive'), style.get('offset_ms',0)
     if (theme not in THEMES or font not in FONTS or type(animations) is not bool or
             not isinstance(accent, str) or not re.fullmatch(r'#[0-9a-fA-F]{6}', accent) or
             type(outline) not in (int, float) or not math.isfinite(outline) or not 0 <= outline <= 6 or
             type(shadow) not in (int, float) or not math.isfinite(shadow) or not 0 <= shadow <= 4):
         raise ValueError('Revisa el estilo, fuente, contorno y animaciones de los subtítulos.')
+    if reveal not in ('progressive','phrase') or type(delay) not in (int,float) or not math.isfinite(delay) or not -3000<=delay<=3000:
+        raise ValueError('Revisa la aparición de palabras y el ajuste de sincronización (−3000 a 3000 ms).')
     return dict(color=color.upper(), size=size, position=position, theme=theme, font=font,
-                accent=accent.upper(), animations=animations, outline=outline, shadow=shadow)
+                accent=accent.upper(), animations=animations, outline=outline, shadow=shadow,reveal=reveal,offset_ms=delay)
 
 
 def subtitle_render_style(style):
@@ -70,8 +73,9 @@ def kept_ranges(options, duration):
     if not isinstance(cuts, list) or len(cuts) > MAX_CUTS:
         raise ValueError('Puedes quitar hasta ocho tramos por edición.')
     kept = []
+    selection_start=start
     for left, right in sorted(interval(cut) for cut in cuts):
-        if left < start or right > end:
+        if left < start or left < selection_start or right > end:
             raise ValueError('Los tramos a quitar deben quedar dentro de la selección y no solaparse.')
         if left > start:
             kept.append((start, left))

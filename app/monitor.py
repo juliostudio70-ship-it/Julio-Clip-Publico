@@ -503,6 +503,12 @@ def rank_moments(cues, duration, seconds, limit, gaps=(), energy=(), visual=None
         if gameplay and GAME_EVENT.search(speech):score+=10
         if not (reactions or turning or question_answer or DISCUSSION.search(speech) or surprise or (gameplay and GAME_EVENT.search(speech))):
             score -= 14
+        # Una historia útil también puede ser tranquila: exige planteamiento y desenlace,
+        # variedad verbal y ocupación suficiente; las palabras clave solas no bastan.
+        narrative=bool(re.search(r'\b(al principio|cuando empez|lo que pas[oó]|me dijeron|resulta que|the first time|it started)\b',speech,re.I))
+        outcome=bool(re.search(r'\b(al final|por eso|aprend[ií]|me di cuenta|termin[oó]|consegu[ií]|in the end|i realized|it turned out)\b',speech,re.I))
+        grounded=(question_answer or (narrative and outcome)) and unique>=12 and speech_seconds>=width*.25
+        if grounded:score+=12
         # No premia frases cortadas aunque tengan palabras llamativas.
         clipped = sum(cue['start']+.15 < boundary < cue['end']-.15
                       for cue in voiced for boundary in (start, end))
@@ -521,7 +527,7 @@ def rank_moments(cues, duration, seconds, limit, gaps=(), energy=(), visual=None
                           max(informative, key=lambda line: len(set(WORD.findall(line.casefold()))), default=speech))
         fingerprint = sorted(set(' '.join(words[i:i+3]).casefold() for i in range(len(words)-2)))
         ranked.append(dict(window, score=score, title=clip_title(meaningful), dialogue_signature=fingerprint,category='gameplay' if gameplay else 'conversation',
-            reason='Contexto y variedad de conversación'+('; reacción' if reactions else '')+('; pregunta y respuesta' if question_answer else '')+('; sorpresa' if surprise else '')+('; debate' if DISCUSSION.search(speech) else '')))
+            reason='Contexto y variedad de conversación'+('; historia con desenlace' if narrative and outcome and grounded else '')+('; reacción' if reactions else '')+('; pregunta y respuesta' if question_answer else '')+('; sorpresa' if surprise else '')+('; debate' if DISCUSSION.search(speech) else '')))
     return choose_moments(ranked, rejects, limit, count_variants=visual is None, visual=visual, previous=previous)
 
 

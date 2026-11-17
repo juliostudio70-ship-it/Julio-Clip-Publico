@@ -175,12 +175,12 @@ async function main() {
   node('caption-size').value='medium';node('caption-position').value='center';
   node('caption-font').value='sans';node('caption-outline').value='0';node('caption-shadow').value='1';
   node('caption-animations').checked=true;
-  assert.equal(node('caption-catalog').children.length,8);
+  assert.equal(node('caption-catalog').children.length,10);
   node('caption-catalog').children[5].onclick();
   node('live-start').onclick();await tick();await tick();
   const animated=JSON.parse(requests.filter(r=>r.url==='/api/live-start').at(-1).options.body);
   assert.deepEqual(animated.subtitle_style,{color:'#ffffff',size:'medium',position:'center',
-    theme:'karaoke',font:'sans',accent:'#a8e986',animations:true,outline:0,shadow:1});
+    theme:'karaoke',font:'sans',accent:'#a8e986',animations:true,outline:0,shadow:1,reveal:'progressive',offset_ms:0});
   assert.equal(animated.burn_subtitles,true);
   assert.equal(node('license-badge').hidden,true);
   state.license={state:'active',days_remaining:3,price:'RD$800 por 30 días',whatsapp:'https://wa.me/18094063310'};

@@ -92,7 +92,7 @@ class AnimatedExport(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             def frames(animated):
-                style = subtitle_settings({'subtitle_style': {'theme': 'dynamic', 'animations': animated, 'font': 'sans'}})
+                style = subtitle_settings({'subtitle_style': {'theme': 'dynamic', 'animations': animated, 'font': 'sans','reveal':'phrase'}})
                 (root/'captions.ass').write_text(ass_text(CUES, style, 360, 640), encoding='utf-8')
                 raw = subprocess.run([ffmpeg, '-v', 'error', '-f', 'lavfi', '-i', 'color=black:s=360x640:r=4:d=1.5',
                                       '-vf', 'ass=captions.ass', '-pix_fmt', 'rgb24', '-f', 'rawvideo', 'pipe:1'],

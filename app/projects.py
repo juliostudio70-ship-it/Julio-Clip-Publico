@@ -17,9 +17,11 @@ class Projects:
     def save(self,name,draft,duration):
         if not isinstance(draft,dict):raise ValueError('Proyecto inválido')
         allowed={'name','start','end','remove','subtitles','burn_subtitles','subtitle_style','caption_edits','format',
-                 'follow_face','overlay_title','resolution','quality','fit','speed','volume','zoom','frame_x','frame_y','effect','fade','cover_time','music'}
+                 'follow_face','overlay_title','resolution','quality','fit','speed','volume','zoom','frame_x','frame_y','effect','fade','cover_time','music',
+                 'custom_watermark','watermark','watermark_opacity','watermark_position','watermark_scale'}
         if set(draft)-allowed:raise ValueError('El proyecto contiene opciones desconocidas')
-        kept_ranges(draft,duration);options(draft);subtitle_settings(draft)
+        import branding
+        kept_ranges(draft,duration);options(draft);subtitle_settings(draft);branding.settings(draft)
         with GUARD:
             data=self.load();data[name]=draft
             temporary=self.file.with_suffix('.tmp');temporary.write_text(json.dumps(data,ensure_ascii=False),encoding='utf-8');temporary.replace(self.file)

@@ -1,4 +1,4 @@
-Julio Clip Publico · Julio Clip 2026.11.15 · Windows 10/11 x64
+Julio Clip Publico · Julio Clip 2026.11.17 · Windows 10/11 x64
 
 Extrae toda esta carpeta y abre Abrir-Julio-Clip.cmd (junto a Julio-Clip-Windows).
 Se abre Inicio en el navegador. No hace falta escribir comandos. Deja la consola abierta mientras procesa.

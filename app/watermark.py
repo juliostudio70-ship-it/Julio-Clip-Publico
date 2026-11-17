@@ -69,7 +69,7 @@ def export_args(ffmpeg, source, output, start, end, probe, logo, enabled=True, o
         size=(round(iw/ih*short)//2*2,short) if iw>=ih else (short,round(ih/iw*short)//2*2)
     if size:
         graph, video = layout_graph(size, split, track=track, fit=values['fit'], frame=(values['frame_x'], values['frame_y']))
-    if enabled:
+    if enabled and not (render_options or {}).get('custom_watermark'):
         width, height = size or display_size(probe)
         # Región del logo dentro del original suministrado de 1280 x 1280.
         # El archivo se conserva íntegro; el recorte y la transparencia son filtros de video.

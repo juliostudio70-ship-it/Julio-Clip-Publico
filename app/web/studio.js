@@ -20,7 +20,7 @@
     $('design-face').checked=p.follow_face&&p.format==='vertical';
     if(p.clip_seconds)$('clip-duration').value=String(p.clip_seconds);
     if(p.clip_count)$('clips-per-block').value=String(p.clip_count);
-    $('published-duration').value=String(p.clip_seconds||30);
+    $('published-duration').value=String(p.clip_seconds||30);$('design-fit').value=p.fit||'auto';
     if(window.Julio.setCaption&&p.subtitle_style)window.Julio.setCaption(p.subtitle_style);
   }
   $('preferences-form').onsubmit=function(event){
@@ -42,7 +42,7 @@
   ['library-search','library-order','library-category'].forEach(function(id){$(id).oninput=function(){window.Julio.refresh();};});
   function matchKey(c){return c.start.toFixed(3)+':'+c.end.toFixed(3);}
   function render(s){
-    snapshot=s;
+    snapshot=s;if(!brandId&&s.branding&&s.branding.length){brandId=s.branding[0];text('brand-status','PNG transparente disponible. Activa Usar mi marca para aplicarlo.');}
     if(s.preferences&&!initialized){loadPrefs(s.preferences);initialized=true;}
     var m=s.dashboard||{};
     [['month','clips_month'],['jobs','jobs_running'],['analyzed','videos_analyzed'],['finished','clips_finished'],['score','best_interest']].forEach(function(pair){text('home-'+pair[0],m[pair[1]]===null||m[pair[1]]===undefined?'—':String(m[pair[1]])+(pair[0]==='score'?'/100':''));});
@@ -70,9 +70,25 @@
     $('published-rejections-list').textContent='';(s.rejections||[]).forEach(function(r){var li=document.createElement('li');li.textContent=r.start.toFixed(1)+'–'+r.end.toFixed(1)+' s · '+r.reason;$('published-rejections-list').appendChild(li);});
     if(s.license){text('settings-license','Estado: '+s.license.state+' · '+s.license.days_remaining+' días restantes'+(s.license.expires_at?' · vence '+new Date(s.license.expires_at).toLocaleString('es'):''));$('settings-license-panel').hidden=false;}
   }
+  var brandId=null;
+  function brandOptions(d,editor){
+    if(brandId&&(editor?$('editor-brand').checked:$('brand-enable').checked)){
+      d.custom_watermark=brandId;d.watermark=editor?true:d.watermark!==false;
+      d.watermark_position=$('brand-position').value;d.watermark_scale=Number($('brand-scale').value)/100;
+      d.watermark_opacity=Number($('watermark-opacity').value)/100;
+    }
+  }
+  $('brand-file').onchange=async function(){
+    var file=this.files&&this.files[0];if(!file)return;
+    if(file.size>8*1024*1024){text('brand-status','Usa un PNG de hasta 8 MB.');return;}
+    text('brand-status','Comprobando transparencia…');
+    try{var result=await api('watermark',file);brandId=result.id;$('brand-enable').checked=true;text('brand-status',result.message);}
+    catch(e){text('brand-status',e.message);}
+  };
   function style(d,prefix){
     if(!snapshot||!snapshot.capabilities||!snapshot.capabilities.studio)return;
-    d.resolution=prefs?prefs.resolution:720;d.quality=prefs?prefs.quality:'balanced';d.fit=prefs?prefs.fit:'auto';
+    brandOptions(d,prefix==='editor');
+    d.resolution=prefs?prefs.resolution:720;d.quality=prefs?prefs.quality:'balanced';d.fit=$('design-fit').value||'auto';
     if(prefix==='editor'){
       ['resolution','speed','volume','zoom'].forEach(function(k){d[k]=Number($('editor-'+k).value);});
       d.quality=$('editor-quality').value;d.fit=$('editor-fit').value;d.effect=$('editor-effect').value;
@@ -89,7 +105,7 @@
   function editorOpen(clip){
     var values=clip.render_options||{};frame={x:.5,y:.5};
     ['resolution','quality','fit'].forEach(function(k){$('editor-'+k).value=String(prefs&&prefs[k]!==undefined?prefs[k]:k==='resolution'?720:k==='quality'?'balanced':'auto');});
-    $('editor-speed').value='1';$('editor-volume').value='1';$('editor-zoom').value='1';$('editor-effect').value='none';$('editor-fade').checked=false;
+    $('editor-brand').checked=false;$('editor-speed').value='1';$('editor-volume').value='1';$('editor-zoom').value='1';$('editor-effect').value='none';$('editor-fade').checked=false;
     $('editor-music').checked=false;$('editor-cover').value='';$('editor-rendered').pause();$('editor-rendered').removeAttribute('src');$('editor-rendered').hidden=true;
   }
   var video=$('editor-video');

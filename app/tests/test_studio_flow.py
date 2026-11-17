@@ -40,12 +40,17 @@ class StudioFlow(unittest.TestCase):
                     self.assertFalse(state['busy']);self.assertNotIn('Error:',state['status'])
                 try:
                     self.assertEqual(request('/api/upload',source.read_bytes(),True)[0],200)
+                    from test_sync_branding import png
+                    brand_status,brand_body,_=request('/api/watermark',png(),True)
+                    self.assertEqual(brand_status,200)
+                    brand_key=json.loads(brand_body)['id']
                     self.assertEqual(hashlib.sha256(source.read_bytes()).hexdigest(),saved)
                     self.assertEqual(state['source_duration'],2)
                     code,body,h=request('/source-video',headers={'Range':'bytes=0-31'})
                     self.assertEqual(code,206);self.assertEqual(len(body),32);self.assertTrue(h['Content-Range'].startswith('bytes 0-31/'))
                     draft=dict(name='imported.video',start=0,end=1,subtitles=False,format='vertical',
                                resolution=720,quality='light',fit='crop',speed=1.25,volume=.5,zoom=1.2,frame_x=.7,frame_y=.3,effect='warm',fade=True)
+                    draft.update(custom_watermark=brand_key,watermark=True,watermark_position='top-right',watermark_scale=.2)
                     self.assertEqual(request('/api/project-save',draft)[0],200)
                     info=json.loads(request('/api/clip-info',{'name':'imported.video'})[1])
                     self.assertEqual(info['project']['frame_x'],.7)

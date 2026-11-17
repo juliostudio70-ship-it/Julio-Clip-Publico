@@ -21,6 +21,7 @@ from urllib.parse import parse_qs, urlparse
 from watermark import MAX_CLIP_SECONDS, display_size, export_args, layout_settings, settings as watermark_settings
 from reframe import FONT, face_commands, prepare_title, styling, vision
 from captions import ass_text, corrected
+import branding
 from library import GUARD as LIBRARY_GUARD, MediaStore
 from license_client import LicenseGate
 from preferences import Preferences
@@ -264,36 +265,28 @@ def extract_audio(source, audio, cancel=None, progress=None, duration=None):
 
 def transcribe(source, audio, transcript, cancel=None, progress=None, duration=None, fast=False):
     extract_audio(source, audio, cancel, progress, duration)
-    return whisper_audio(audio, transcript, cancel, progress, duration, fast)
+    return whisper_audio(audio, transcript, cancel, progress, duration, fast,align=True)
 
 
-def whisper_audio(audio, transcript, cancel=None, progress=None, duration=None, fast=False):
+def whisper_audio(audio, transcript, cancel=None, progress=None, duration=None, fast=False, align=False):
     model = ROOT / 'models/ggml-base.bin'
     if not model.is_file():
         raise ValueError('Falta el modelo local ggml-base.bin. Consulta el tutorial.')
     prefs=Preferences(DATA).load()
     threads=1 if prefs['performance']=='light' else 2 if prefs['performance']=='balanced' else 4
-    command = [tool('whisper-cli'), '-m', str(model), '-f', str(audio), '-l', prefs['language'], '-ng', '-t', str(threads),
-               '-ojf', '-ml', '64', '-sow', '-mc', '0', '-of', str(transcript.with_suffix(''))]
-    if fast or prefs['performance'] != 'high':
-        command += ['-bs', '1', '-bo', '1']
-    if progress:
-        progress.reset('Convirtiendo el audio en texto…', duration)
-        last = -1
-        def whisper_line(line):
-            nonlocal last
-            match = re.search(rb'progress\s*=\s*(\d+)\s*%', line)
-            if match:
-                percent = min(100, int(match[1]))
-                if percent > last:
-                    last = percent
-                    progress.report(percent / 100)
-                    return True
-            return False
-        run(command + ['-pp'], cancel=cancel, on_line=whisper_line, stall_timeout=240)
-    else:
-        run(command, cancel=cancel)
-    return json.loads(transcript.read_text(encoding='utf-8'))
+    from transcription import transcribe_chunks
+    def decode(part, result, language):
+        command = [tool('whisper-cli'), '-m', str(model), '-f', str(part),
+                   '-l', language or prefs['language'], '-ng', '-t', str(threads),
+                   '-ojf', '-ml', '64', '-sow', '-mc', '0',
+                   '-of', str(result.with_suffix(''))]
+        if align:command += ['-dtw','base']
+        if fast or prefs['performance'] != 'high':command += ['-bs','1','-bo','1']
+        # Un bloque tiene ~20 s; el límite permite CPU lentas sin cortar a los 4 min.
+        run(command, cancel=cancel, timeout=1800)
+        return json.loads(result.read_text(encoding='utf-8'))
+    return transcribe_chunks(audio,transcript,decode,progress,cancel)
+
 
 
 def scan_video(source, duration, cancel):
@@ -384,6 +377,9 @@ def publish_clip(store, name, metadata, render, captions=None, cancel=None, job=
                  composition=None, progress=None, burn_subtitles=False, subtitle_style=None,
                  verify_motion=False, render_options=None, preview=False):
     store.check_space()
+    brand=branding.settings(render_options or {})
+    if brand['custom_watermark']:
+        branding.image(DATA,brand['custom_watermark'])
     with tempfile.TemporaryDirectory(prefix='exportando-', dir=store.root) as work:
         folder = Path(work)
         rendered = folder / 'video.mp4'
@@ -410,6 +406,7 @@ def publish_clip(store, name, metadata, render, captions=None, cancel=None, job=
             run(args, cancel=cancel, cwd=cwd)
         original_duration = metadata['end']-metadata['start']
         values=render_settings(render_options or {})
+        brand=branding.settings(render_options or {})
         speed=values['speed']
         duration=original_duration/speed
         if duration>MAX_CLIP_SECONDS+1e-8:
@@ -434,6 +431,14 @@ def publish_clip(store, name, metadata, render, captions=None, cancel=None, job=
             rendered=transformed
         if captions and not cues and not metadata.get('burned_subtitles') and not metadata.get('captions_edited'):
             metadata['no_caption_speech'] = True
+        if brand['custom_watermark'] and (render_options or {}).get('watermark',True):
+            logo=branding.image(DATA,brand['custom_watermark'])
+            marked=folder/'video-marca-propia.mp4'
+            opacity=watermark_settings(render_options or {})[1]
+            run(branding.overlay_args(tool('ffmpeg'),rendered,marked,logo,
+                *display_size(inspect_media(rendered,cancel)),opacity,brand),cancel=cancel)
+            rendered=marked
+            metadata.update(brand,watermark=True,watermark_opacity=opacity)
         if cues and not metadata.get('burned_subtitles'):
             if job:
                 job.progress.reset('Añadiendo los subtítulos…')
@@ -624,11 +629,9 @@ def consume_live(path, options, stop):
             marked = quota.reserve(name, enabled) if quota else enabled
             captions = None
             if not PUBLIC and subtitles_enabled(options):
-                if cues is None or any(cue['start'] < start < cue['end'] or cue['start'] < end < cue['end']
-                                       for cue in cues):
-                    captions = lambda output, folder: transcribe_clip(output, folder, end-start, cancel=stop, fast=True)
-                else:
-                    captions = lambda _output, _folder: retime_cues(cues, [(start, end)])
+                # Se alinea el audio del clip realmente exportado, no el bloque o
+                # la versión compactada usada para puntuar las jugadas.
+                captions = lambda output, folder: transcribe_clip(output, folder, end-start, cancel=stop, fast=True)
             try:
                 composition = (path, probe, [(start, end)], follow, title) if follow or title else None
                 publish_clip(store, name, {'start': start, 'end': end, 'watermark': marked, 'automatic': True,
@@ -959,7 +962,7 @@ def process(action, payload, job=None):
                     revised = corrected(original['captions'], payload.get('caption_edits'))
                     captions = lambda _output, _folder: retime_cues(revised, ranges)
                 elif not original.get('burned_subtitles'):
-                    captions = lambda output, folder: transcribe_clip(output, folder, duration)
+                    captions = lambda output, folder: transcribe_clip(output, folder, duration,job)
             name = 'clip-' + secrets.token_hex(6) + '.mp4'
             STATE['status'] = 'Guardando copia editada…'
             composition = (source, probe, ranges, follow, title) if follow or title else None
@@ -1075,6 +1078,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(403, {'error': 'Host no permitido'})
         path = urlparse(self.path).path
         if path == '/api/state':
+            STATE['branding']=[p.stem for p in sorted((DATA/'watermarks').glob('*.png'),key=lambda p:p.stat().st_mtime,reverse=True) if re.fullmatch('[0-9a-f]{32}',p.stem)]
             try:
                 state = dict(STATE, source=bool(STATE['source']))
                 state.update(MediaStore(DATA).view())
@@ -1243,6 +1247,17 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(400, {'error': str(e)})
             except OSError:
                 return self.send(409, {'error': 'No se pudo mover el archivo. Si está abierto en otro programa, ciérralo y vuelve a intentar.'})
+        if self.path == '/api/watermark':
+            if not LOCK.acquire(False):return self.send(409,{'error':'Espera a que termine la tarea antes de importar una marca.'})
+            try:
+                check_license()
+                length=int(self.headers.get('Content-Length',0))
+                if not 32<=length<=8*1024**2:raise ValueError('Selecciona un PNG transparente de hasta 8 MB.')
+                data=self.rfile.read(length)
+                if len(data)!=length:raise ValueError('La imagen no llegó completa. Vuelve a seleccionarla.')
+                return self.send(200,branding.store(DATA,data,tool('ffmpeg'),run))
+            except (ValueError,OSError,TypeError) as e:return self.send(400,{'error':str(e)})
+            finally:LOCK.release()
         if self.path == '/api/music':
             if not LOCK.acquire(False):return self.send(409,{'error':'Espera a que termine la tarea.'})
             temporary=DATA/'music-upload.part'

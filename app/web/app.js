@@ -151,13 +151,13 @@
     payload.subtitle_style=captionSettings(prefix);
   }
   var captionThemes=[['classic','Clásico','CC'],['dynamic','Dinámico','Aa'],['word','Palabra por palabra','1·2'],
-    ['bounce','Rebote','↟'],['zoom','Zoom','⊕'],['karaoke','Karaoke','♫'],['minimal','Minimalista','—'],['impact','Impacto','!']];
+    ['bounce','Rebote','↟'],['zoom','Zoom','⊕'],['karaoke','Karaoke','♫'],['minimal','Minimalista','—'],['impact','Impacto','!'],['slide','Deslizar','↗'],['build','Construcción','▰']];
   function captionSettings(prefix){
     return {color:$(prefix+'-color').value||'#ffffff',size:$(prefix+'-size').value||'medium',
       position:$(prefix+'-position').value||'bottom',theme:$(prefix+'-catalog').selectedTheme||'classic',
       font:$(prefix+'-font').value||'barlow',accent:$(prefix+'-accent').value||'#a8e986',
       animations:$(prefix+'-animations').checked,outline:Number($(prefix+'-outline').value||2),
-      shadow:Number($(prefix+'-shadow').value||1)};
+      shadow:Number($(prefix+'-shadow').value||1),reveal:$(prefix+'-reveal').value||'progressive',offset_ms:Number($(prefix+'-offset').value||0)};
   }
   function captionDemo(prefix){
     var style=captionSettings(prefix),demo=$(prefix+'-demo');
@@ -192,7 +192,7 @@
       };
       catalog.appendChild(card);
     });
-    ['color','size','position','font','accent','outline','shadow','animations'].forEach(function(key){
+    ['color','size','position','font','accent','outline','shadow','animations','reveal','offset'].forEach(function(key){
       $(prefix+'-'+key).oninput=function(){captionDemo(prefix);};
     });
     captionDemo(prefix);
@@ -368,7 +368,7 @@
     var options={},path='/api/'+method;
     var binary={download:'/clips/',thumbnail:'/thumbs/',subtitles:'/subtitulos/'};
     if(binary[method])path=binary[method]+payload.name;
-    else if(method!=='state'&&method!=='diagnostics')options={method:'POST',headers:{'X-Julio-Token':token,'Content-Type':method==='upload'?'application/octet-stream':'application/json'},body:method==='upload'?payload:JSON.stringify(payload||{})};
+    else if(method!=='state'&&method!=='diagnostics')options={method:'POST',headers:{'X-Julio-Token':token,'Content-Type':method==='upload'||method==='watermark'?'application/octet-stream':'application/json'},body:method==='upload'||method==='watermark'?payload:JSON.stringify(payload||{})};
     return fetch(path,options).then(function(r){if(!r.ok)return r.json().then(function(d){throw Error(d.error||'La operación falló.');});return binary[method]||method==='kick-preview'?r.blob():r.json();});
   }
   function act(method,payload){
@@ -518,10 +518,10 @@
     $('editor-burn').checked=true;
     if(clip.subtitle_style){
       var savedStyle=clip.subtitle_style;
-      ['color','size','position','font','accent','outline','shadow'].forEach(function(key){
+      ['color','size','position','font','accent','outline','shadow','reveal'].forEach(function(key){
         if(savedStyle[key]!==undefined)$('edit-caption-'+key).value=String(savedStyle[key]);
       });
-      $('edit-caption-animations').checked=savedStyle.animations!==false;
+      $('edit-caption-offset').value=String(savedStyle.offset_ms||0);$('edit-caption-animations').checked=savedStyle.animations!==false;
       captionThemes.forEach(function(theme,index){
         if(theme[0]===savedStyle.theme)$('edit-caption-catalog').children[index].onclick();
       });
@@ -888,8 +888,8 @@
     preview:function(){if(editor){editor.previewRequested=true;$('editor-save').onclick();}},
     editorPayload:function(){if(!editor)return null;var d=editorDraft();if(!d)return null;delete d.duration;d.name=editor.clip.name;d.subtitles=$('editor-subtitles').checked;d.format=$('editor-format').value||'original';applySubtitles(d,'editor');if(editor.captionFields&&editor.captionFields.length)d.caption_edits=editor.captionFields.map(function(f){return f.value;});return addStyling(d,'editor');},
     state:function(){return lastState;},caption:function(){return captionSettings('caption');},
-    setCaption:function(s){['color','size','position','font','accent','outline','shadow'].forEach(function(k){if(s[k]!==undefined)$('caption-'+k).value=String(s[k]);});$('caption-animations').checked=s.animations!==false;captionThemes.forEach(function(t,i){if(t[0]===s.theme)$('caption-catalog').children[i].onclick();});captionDemo('caption');},
-    setEditorCaption:function(s){['color','size','position','font','accent','outline','shadow'].forEach(function(k){if(s[k]!==undefined)$('edit-caption-'+k).value=String(s[k]);});$('edit-caption-animations').checked=s.animations!==false;captionThemes.forEach(function(t,i){if(t[0]===s.theme)$('edit-caption-catalog').children[i].onclick();});captionDemo('edit-caption');},
+    setCaption:function(s){['color','size','position','font','accent','outline','shadow','reveal'].forEach(function(k){if(s[k]!==undefined)$('caption-'+k).value=String(s[k]);});$('caption-offset').value=String(s.offset_ms||0);$('caption-animations').checked=s.animations!==false;captionThemes.forEach(function(t,i){if(t[0]===s.theme)$('caption-catalog').children[i].onclick();});captionDemo('caption');},
+    setEditorCaption:function(s){['color','size','position','font','accent','outline','shadow','reveal'].forEach(function(k){if(s[k]!==undefined)$('edit-caption-'+k).value=String(s[k]);});$('edit-caption-offset').value=String(s.offset_ms||0);$('edit-caption-animations').checked=s.animations!==false;captionThemes.forEach(function(t,i){if(t[0]===s.theme)$('edit-caption-catalog').children[i].onclick();});captionDemo('edit-caption');},
     publishedPayload:function(){var d=mark();d.subtitles=$('export-subtitles').checked;applySubtitles(d,'export');d.format=$('published-format').value||'original';return addStyling(d,'design');}};
   setInterval(function(){if(!local&&linked&&(!bridge||bridge.closed))disconnect();refresh();},2000);
 }());

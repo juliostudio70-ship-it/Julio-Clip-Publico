@@ -2,7 +2,7 @@
 import math
 import re
 
-THEMES = ('classic', 'dynamic', 'word', 'bounce', 'zoom', 'karaoke', 'minimal', 'impact')
+THEMES = ('classic', 'dynamic', 'word', 'bounce', 'zoom', 'karaoke', 'minimal', 'impact', 'slide', 'build')
 FONTS = {'barlow': 'Barlow Condensed', 'sans': 'Arial', 'serif': 'Georgia'}
 
 
@@ -18,6 +18,17 @@ def timed_words(text, start, end):
 
 
 def token_words(tokens, start, end):
+    valid=[token for token in tokens if isinstance(token.get('text'),str) and token['text'].strip()
+           and not token['text'].startswith(('[','<|'))]
+    if valid and all(type(t.get('t_dtw')) in (int,float) and math.isfinite(t['t_dtw']) and
+                     start-.1<=t['t_dtw']/100<=end+.1 for t in valid):
+        groups=[]
+        for t in valid:
+            if groups and not t['text'][0].isspace():groups[-1]['text']+=t['text']
+            else:groups.append(dict(text=t['text'].strip(),start=max(start,t['t_dtw']/100-.025)))
+        for i,w in enumerate(groups):
+            w['end']=max(w['start']+.02,min(end,groups[i+1]['start'] if i+1<len(groups) else end))
+        if all(start<=w['start']<w['end']<=end+.03 for w in groups):return groups
     result = []
     for token in tokens:
         text = token.get('text', '')
@@ -143,9 +154,32 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         if end-start >= .02:
             events.append(f'Dialogue: 0,{stamp(start)},{stamp(end)},Default,,0,0,0,,{{{tags}}}{text}\n')
 
-    for cue in cues:
+    for original in cues:
+        delay=style.get('offset_ms',0)/1000
+        cue=dict(original,start=original['start']+delay,end=original['end']+delay)
+        if original.get('words'):
+            cue['words']=[dict(w,start=w['start']+delay,end=w['end']+delay) for w in original['words']]
         words = cue.get('words') or timed_words(cue['text'], cue['start'], cue['end'])
         if not words:
+            continue
+        if style.get('reveal','progressive')=='progressive':
+            for index,word in enumerate(words):
+                end=min(cue['end'],word['end']+.10,words[index+1]['start'] if index+1<len(words) else cue['end'])
+                if end<=word['start']:
+                    continue
+                shown=[word] if theme in ('word','bounce','zoom','slide') else words[:index+1]
+                content=' '.join((r'{\1c'+accent_tag+'}'+safe(w['text'])+r'{\1c'+primary_tag+'}')
+                    if theme in ('dynamic','karaoke') and i==len(shown)-1 else safe(w['text']) for i,w in enumerate(shown))
+                tags=r'\fad(30,40)' if animated else ''
+                if animated and theme in ('bounce','impact','build'):
+                    tags+=r'\fscx90\fscy90\t(0,100,\fscx106\fscy106)\t(100,170,\fscx100\fscy100)'
+                if animated and theme=='zoom':
+                    tags+=r'\fscx92\fscy92\t(0,170,\fscx104\fscy104)'
+                if animated and theme=='slide':
+                    px=round(width/2)
+                    py=round(height*({'top':.12,'center':.5,'bottom':.88}[style['position']]))
+                    tags+=f'\\move({px},{py+20},{px},{py},0,120)'
+                emit(max(0,word['start']),end,content.upper() if theme=='impact' else content,tags)
             continue
         fade = r'\fad(100,100)' if animated else ''
         if not animated or theme in ('classic', 'minimal', 'impact'):

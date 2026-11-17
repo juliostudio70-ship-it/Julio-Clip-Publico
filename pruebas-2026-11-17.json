@@ -1,0 +1,28 @@
+{
+  "tests": 128,
+  "fallos": 0,
+  "errores": 0,
+  "omitidas": 0,
+  "javascript": [
+    {
+      "comando": "node work/src/tests/test_app.js",
+      "codigo": 0
+    },
+    {
+      "comando": "node work/src/tests/test_bridge.js",
+      "codigo": 0
+    },
+    {
+      "comando": "node work/src/tests/test_bridge_races.js",
+      "codigo": 0
+    },
+    {
+      "comando": "node work/src/tests/test_remote_app.js",
+      "codigo": 0
+    }
+  ],
+  "voice_sample_language": "en",
+  "caption_dtw_real": true,
+  "public_private_smoke": true,
+  "customer_original_video_available": false
+}
