@@ -44,6 +44,7 @@
   function render(s){
     snapshot=s;if(!brandId&&s.branding&&s.branding.length){brandId=s.branding[0];text('brand-status','PNG transparente disponible. Activa Usar mi marca para aplicarlo.');}
     if(s.preferences&&!initialized){loadPrefs(s.preferences);initialized=true;}
+    if($('app-version')&&s.version)text('app-version','Versión '+s.version);
     var m=s.dashboard||{};
     [['month','clips_month'],['jobs','jobs_running'],['analyzed','videos_analyzed'],['finished','clips_finished'],['score','best_interest']].forEach(function(pair){text('home-'+pair[0],m[pair[1]]===null||m[pair[1]]===undefined?'—':String(m[pair[1]])+(pair[0]==='score'?'/100':''));});
     $('home-chart').textContent='';var max=Math.max.apply(null,(m.days||[]).map(function(d){return d.count;}).concat([1]));

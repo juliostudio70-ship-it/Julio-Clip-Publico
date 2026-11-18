@@ -1,0 +1,28 @@
+{
+  "version": "2026.11.17.1",
+  "host": "Windows-10-10.0.19045-SP0",
+  "windows_11_customer_verified": false,
+  "python_exit_code": 0,
+  "javascript": [
+    {
+      "test": "test_app.js",
+      "exit_code": 0
+    },
+    {
+      "test": "test_bridge.js",
+      "exit_code": 0
+    },
+    {
+      "test": "test_bridge_races.js",
+      "exit_code": 0
+    },
+    {
+      "test": "test_remote_app.js",
+      "exit_code": 0
+    }
+  ],
+  "whisper_engine": "1.7.6 baseline x64, public CRT imports",
+  "real_asr_sample": "en, jfk",
+  "license_configuration_unchanged": true,
+  "python_tests": 136
+}

@@ -22,7 +22,7 @@ def sha256(path):
             digest.update(block)
     return digest.hexdigest()
 
-def verify_inventory(root):
+def verify_inventory(root, engine_optional=False):
     root = Path(root).resolve()
     inventory = root / 'HERRAMIENTAS-SHA256.json'
     if not inventory.is_file():
@@ -34,6 +34,8 @@ def verify_inventory(root):
         path = (root / name).resolve()
         if root not in path.parents:
             raise ValueError('El inventario contiene una ruta fuera de la aplicación.')
+        if engine_optional and (name=='bin/whisper-cli.exe' or name.startswith('bin/whisper-respaldo/')):
+            continue
         if not path.is_file():
             raise ValueError('Falta %s. Extrae TODO el ZIP, sin mover los ejecutables por separado.' % name)
         if sha256(path) != expected:
@@ -43,10 +45,17 @@ def verify_inventory(root):
 def preflight(root=ROOT):
     if sys.platform != 'win32' or struct.calcsize('P') != 8 or sys.getwindowsversion().major < 10:
         raise ValueError('Esta versión requiere Windows 10 u 11 de 64 bits (Intel/AMD).')
-    count = verify_inventory(root)
+    count = verify_inventory(root,engine_optional=True)
     checks = server.requirements()
     missing = [name for name, ready in checks.items() if not ready]
     if missing:
+        if 'whisper-cli' in missing:
+            from engine_windows import ENGINES
+            report=ENGINES.report(root)
+            server.DATA.mkdir(parents=True,exist_ok=True)
+            (server.DATA/'diagnostico-arranque.json').write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf-8')
+            detail='; '.join(x['engine']+': '+x.get('exit_code',str(x.get('os_error',x.get('reason'))))+' · '+x.get('message','') for x in report['checks'])
+            raise ValueError('El motor de voz no pudo iniciarse. '+detail+' Informe: diagnostico-arranque.json en tu carpeta de datos de Julio Clip.')
         raise ValueError('No funcionan estas dependencias: %s. Ejecuta Comprobar-Equipo.cmd y conserva su informe.' % ', '.join(missing))
     return {'archivos_verificados': count, 'herramientas': checks}
 
@@ -99,6 +108,8 @@ def main():
     except Exception as error:
         report['error'] = str(error) if isinstance(error, ValueError) else 'No se pudo completar la comprobación. Revisa permisos y vuelve a extraer la entrega.'
         print('ERROR: ' + report['error'], flush=True)
+    from engine_windows import ENGINES
+    report['engine']=ENGINES.report(ROOT)
     server.DATA.mkdir(parents=True, exist_ok=True)
     path = server.DATA/'diagnostico-equipo.json'
     path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding='utf-8')

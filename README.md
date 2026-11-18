@@ -1,10 +1,18 @@
-# Julio Clip Público · 2026.11.17
+# Julio Clip Público · 2026.11.17.1
 
 Interfaz web local para Windows 10/11 de 64 bits. El procesamiento se realiza en el equipo del cliente. La edición pública requiere una licencia de 30 días y mantiene la misma configuración de validación del servidor.
 
 [Página oficial](https://julio-clip-descarga-70.juliostudio70.chatgpt.site) · [Descargar paquete público completo](https://julio-clip-descarga-70.juliostudio70.chatgpt.site/downloads/Julio-Clip-Publico.zip)
 
-## Esta actualización
+## Reparación de arranque 2026.11.17.1
+
+Motor de respaldo incluido, compilado para x86-64 básico sin AVX, con importaciones públicas del CRT de Windows. El inicio comprueba la integridad y prueba el respaldo si el motor anterior no arranca. Se conserva el código Windows/NTSTATUS y se genera un diagnóstico sin datos personales. La versión se ve en la consola y en la interfaz.
+
+136 pruebas de Python y 4 pruebas de JavaScript pasaron en Windows 10 x64, con Whisper, subtítulos, audio y FFmpeg reales. Ambas ediciones arrancaron incluso retirando temporalmente el motor principal en una copia de prueba. La causa del fallo original del cliente y su Windows 11 siguen sin verificarse. No se certifica compatibilidad universal. No se alteran activaciones, vencimientos ni códigos existentes.
+
+Consulta `app/ARRANQUE-WINDOWS.md`. `app/compatibilidad/` conserva el parche y la procedencia del respaldo; su ejecutable viene en el ZIP público.
+
+## Funciones conservadas
 
 - Transcripción en ventanas cortas con progreso real y cancelación; se sustituye el corte arbitrario de 4 minutos sin mensajes.
 - Subtítulos del clip final con tiempos DTW por palabra, revelado progresivo sin adelantar palabras futuras y ajuste manual de desfase.
@@ -40,7 +48,7 @@ Para desarrollo, trabaja sobre una copia del paquete descargado y sustituye sus 
 
 ## Validación y límites
 
-128 pruebas de Python pasaron, incluidas exportaciones con FFmpeg, audio, los diez estilos, resaltado visible, corrección y retirada de subtítulos, papelera y Whisper real; también pasaron las pruebas de JavaScript y la revisión visual del catálogo. La muestra de reconocimiento real es inglesa. La precisión con tu voz en español y los cambios de hablante en tus transmisiones necesitan validación con material real. La selección de momentos y anuncios usa indicios, no comprensión infalible.
+136 pruebas de Python pasaron, incluidas exportaciones con FFmpeg, audio, los diez estilos, resaltado visible, corrección y retirada de subtítulos, papelera y Whisper real; también pasaron las pruebas de JavaScript y la revisión visual del catálogo. La muestra de reconocimiento real es inglesa. La precisión con tu voz en español y los cambios de hablante en tus transmisiones necesitan validación con material real. La selección de momentos y anuncios usa indicios, no comprensión infalible.
 
 Se investigó OpenShorts como referencia, sin copiar su código ni añadir sus APIs externas. La inferencia DTW real se comprobó con voz inglesa; falta el MP4 concreto del cliente para reproducir su equipo y contenido.
 

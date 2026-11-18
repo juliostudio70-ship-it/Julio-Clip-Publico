@@ -1,0 +1,10 @@
+{
+  "source": "https://github.com/ggml-org/whisper.cpp/releases/tag/v1.7.6",
+  "source_archive_sha256": "8c579f4468fc23ddd64092ca9d8f3933d831a358ae9b7fcc09b43d9496a020c5",
+  "compiler": "Zig 0.13.0",
+  "cpu": "x86_64 baseline, AVX/AVX2/FMA/F16C/SSE42/OpenMP disabled",
+  "compatibility_patch": "memchr_compat.c resolves memchr locally instead of api-ms-win-crt-private-l1-1-0.dll",
+  "build_script": "build_whisper.ps1",
+  "seconds": 15.25,
+  "sha256": "23decb079a0da463ec0b51af9711542262431fa39936ed801549d2dbe20cad34"
+}

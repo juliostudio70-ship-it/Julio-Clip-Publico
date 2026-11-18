@@ -7,7 +7,9 @@ import server
 
 def main():
     try:
-        print('Julio Clip: verificando las herramientas incluidas...', flush=True)
+        from engine_windows import version
+        print('Julio Clip '+version(Path(__file__).resolve().parent)+': verificando las herramientas incluidas...', flush=True)
+        print('Windows puede tardar en comprobar el motor la primera vez. Se probará el alternativo incluido si hace falta.',flush=True)
         preflight()
         print('Herramientas listas. Se abrirá la interfaz local en el navegador.', flush=True)
         print('Mantén esta ventana abierta. Control + C detiene Julio Clip.', flush=True)

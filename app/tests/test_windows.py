@@ -50,5 +50,18 @@ class WindowsTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'fuera de'):
                 verify_inventory(root)
 
+    def test_alternative_engine_may_recover_only_optional_engine_files(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            entries = self.inventory(root)
+            entries['bin/whisper-cli.exe'] = 'missing'
+            (root/'HERRAMIENTAS-SHA256.json').write_text(json.dumps(entries))
+            self.assertEqual(verify_inventory(root, engine_optional=True), 6)
+            with self.assertRaisesRegex(ValueError, 'Falta bin/whisper-cli'):
+                verify_inventory(root)
+            (root/'tool-1.bin').write_bytes(b'broken')
+            with self.assertRaisesRegex(ValueError, 'incompleto o cambi'):
+                verify_inventory(root, engine_optional=True)
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)

@@ -138,6 +138,11 @@ def live_clip_settings(options):
     return seconds, count
 
 def tool(name):
+    if name=='whisper-cli' and os.name=='nt':
+        from engine_windows import ENGINES
+        bundled=ROOT/'bin/whisper-cli.exe'
+        if bundled.is_file() or (ROOT/'bin/whisper-respaldo/whisper-cli.exe').is_file():
+            return ENGINES.select(ROOT)
     local = ROOT / 'bin' / (name + ('.exe' if os.name == 'nt' else ''))
     return str(local) if local.is_file() else shutil.which(name)
 
@@ -145,6 +150,10 @@ def requirements():
     result = {}
     for name in ('ffmpeg', 'ffprobe', 'whisper-cli', 'yt-dlp'):
         exe = tool(name)
+        if name == 'whisper-cli' and os.name == 'nt' and (ROOT/'bin/whisper-respaldo').is_dir():
+            # El selector ya verificó hash y arranque (hasta 60 s), con caché.
+            result[name] = bool(exe)
+            continue
         try:
             p = subprocess.run([exe, '--version' if name == 'yt-dlp' else ('--help' if name == 'whisper-cli' else '-version')], stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=20, **child_options()) if exe else None
             result[name] = bool(p and p.returncode == 0)
@@ -1081,6 +1090,8 @@ class Handler(BaseHTTPRequestHandler):
             STATE['branding']=[p.stem for p in sorted((DATA/'watermarks').glob('*.png'),key=lambda p:p.stat().st_mtime,reverse=True) if re.fullmatch('[0-9a-f]{32}',p.stem)]
             try:
                 state = dict(STATE, source=bool(STATE['source']))
+                from engine_windows import version
+                state['version']=version(ROOT)
                 state.update(MediaStore(DATA).view())
                 state['live'] = live().snapshot()
                 state['capabilities'] = {'kick': not PUBLIC, 'formats': not PUBLIC, 'profiles': not PUBLIC,
@@ -1106,7 +1117,11 @@ class Handler(BaseHTTPRequestHandler):
                                    'desktop': DESKTOP, 'public': PUBLIC,
                                    'prepare_mac': DESKTOP and sys.platform == 'darwin' and not PUBLIC})
         if path == '/api/diagnostics':
-            return self.send(200, {'requirements': requirements(), 'platform': os.name})
+            from engine_windows import ENGINES
+            ENGINES.clear()
+            result={'requirements': requirements(), 'platform': os.name}
+            if os.name=='nt':result['engine']=ENGINES.report(ROOT)
+            return self.send(200,result)
         if path.startswith(('/clips/', '/thumbs/', '/subtitulos/')) and LICENSE and not LICENSE.allowed():
             return self.send(403, {'error': LICENSE_REQUIRED})
         if path in ('/source-video','/editor-preview.mp4'):
